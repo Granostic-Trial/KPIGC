@@ -1,811 +1,449 @@
 <!DOCTYPE html>
 <html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sistem KPI - Granostic Center (Bullet Proof)</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem KPI Granostic Center</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-      .nav-btn.active { background-color: #00a693; color: white; }
-      
-      /* FIX PRINT: Estetika cetak dan Audit Trail */
-      @media print {
-        @page { size: landscape; margin: 10mm; }
-        body, html {
-          background: white !important; font-size: 9pt; color: #000;
-          height: auto !important; overflow: visible !important; display: block !important;
-          -webkit-print-color-adjust: exact;
+        /* Gaya khusus untuk mode Cetak PDF */
+        @media print {
+            body { background: white !important; margin: 0; padding: 0; }
+            .print\:hidden { display: none !important; }
+            .print\:block { display: block !important; }
+            .print-container { width: 100%; max-width: 100%; margin: 0; padding: 0; overflow: visible !important; height: auto !important; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
         }
-        main, #mainView, #sec-penilaian {
-          height: auto !important; overflow: visible !important; display: block !important;
-        }
-        .no-print, nav, button { display: none !important; }
-        .print-only { display: block !important; }
-        .print-flex { display: flex !important; }
-        .print-container { width: 100%; max-width: 100%; border: none; box-shadow: none; padding: 0; margin: 0; }
-        select, input { border: none !important; background: transparent !important; appearance: none; outline: none; color: black; font-weight: bold; pointer-events: none; }
-        input[type="text"] { font-weight: normal; font-size: 8pt; }
-        table { page-break-inside: auto; table-layout: fixed; width: 100%; }
-        tr { page-break-inside: avoid; page-break-after: auto; }
-        td, th { word-wrap: break-word; white-space: normal; }
-        .page-break { page-break-before: always; }
-        
-        /* Memastikan audit trail ikut tercetak dengan rapi */
-        #auditTrailContainer { display: block !important; margin-top: 20px; page-break-inside: avoid; }
-        #auditLog { max-height: none !important; overflow-y: visible !important; border: none; }
-      }
-      .print-only, .print-flex { display: none; }
-      .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+        /* Style Global */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8; }
+        .nav-btn.active { background-color: #00A693; color: white; font-weight: bold; }
+        .nav-btn:hover:not(.active) { background-color: rgba(0, 166, 147, 0.1); }
     </style>
-  </head>
-  <body class="bg-[#f0f4f8] font-sans text-gray-800 min-h-screen flex">
-    
-    <!-- HALAMAN LOGIN -->
-    <div id="loginView" class="min-h-screen w-full flex items-center justify-center p-4 fixed z-50 bg-[#f0f4f8]">
-      <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border-t-8 border-[#00A693] text-center">
-        <img src="https://lh3.googleusercontent.com/d/13fYVo8GG4_R75m5fcqNieWpTnePyB0cb" alt="Granostic Logo" class="mx-auto h-16 mb-4 object-contain" />
-        <p class="text-sm text-gray-500 mb-6 font-semibold">Portal Penilaian Kinerja Karyawan (KPI)</p>
-        <form id="loginForm" class="space-y-4 text-left">
-          <input type="email" id="email" required placeholder="Email Kerja" autocomplete="off" class="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition" />
-          <input type="password" id="pass" required placeholder="Kata Sandi" autocomplete="off" class="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition" />
-          <button type="submit" id="btnLogin" class="w-full bg-[#00A693] text-white p-3 rounded-lg font-bold hover:bg-teal-700 transition">Masuk Sistem</button>
-        </form>
-      </div>
-    </div>
+</head>
+<body class="flex flex-col md:flex-row min-h-screen">
 
-    <!-- HALAMAN UTAMA -->
-    <div id="mainView" class="hidden w-full flex flex-col md:flex-row min-h-screen">
-      <!-- Sidebar Menu -->
-      <nav class="no-print w-full md:w-64 bg-slate-900 text-gray-300 flex flex-col p-4 shadow-lg z-10 flex-shrink-0 print:hidden">
+    <!-- SIDEBAR (Kiri) -->
+    <div class="print:hidden w-full md:w-64 bg-slate-900 text-gray-300 flex flex-col p-4 shadow-lg z-10 flex-shrink-0 min-h-screen">
         <div class="border-b border-slate-700 pb-4 mb-4 text-center">
-          <img src="https://lh3.googleusercontent.com/d/1Bo0fEb-lIgrCfHMjO8G6a4rd0L9rn5CC" class="w-4/5 mx-auto mb-3 object-contain" />
-          <div class="text-white font-black tracking-wider text-sm mt-2">GRANOSTIC KPI</div>
-          <div id="loggedUserName" class="text-sm text-[#00A693] font-bold mt-2"></div>
-          <div id="userRoleBadge" class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider"></div>
+            <!-- Logo Granostic -->
+            <h1 class="text-white font-black tracking-wider text-xl mt-2">Gran<span class="text-[#00A693]">o</span>stic</h1>
+            <div class="text-white font-bold tracking-wider text-sm mt-1">GRANOSTIC KPI</div>
+            <!-- Info User -->
+            <div id="sidebarUserName" class="text-sm text-[#00A693] font-bold mt-4">Memuat...</div>
+            <div id="sidebarUserRole" class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider"></div>
         </div>
+
         <div class="space-y-2 flex-grow">
-          <button onclick="switchMenu('penilaian')" id="btn-penilaian" class="nav-btn active w-full text-left p-3 rounded-lg text-sm transition hidden">📝 Lembar Penilaian</button>
-          <button onclick="switchMenu('rekap')" id="btn-rekap" class="nav-btn w-full text-left p-3 rounded-lg text-sm transition">📊 Monitoring Penilaian</button>
-          <button onclick="openGantiPassword(false)" id="btn-gantipw" class="nav-btn w-full text-left p-3 rounded-lg text-sm transition">🔑 Ganti Password</button>
+            <button onclick="switchMenu('penilaian')" id="btn-penilaian" class="nav-btn active w-full text-left p-3 rounded-lg text-sm transition">📝 Lembar Penilaian</button>
+            <button onclick="switchMenu('monitoring')" id="btn-monitoring" class="nav-btn w-full text-left p-3 rounded-lg text-sm transition">📊 Monitoring Penilaian</button>
+            <button onclick="switchMenu('dashboard')" id="btn-dashboard" class="nav-btn w-full text-left p-3 rounded-lg text-sm transition hidden">📈 Dashboard Global KPI</button>
         </div>
+
         <button onclick="logoutSistem()" type="button" class="mt-auto bg-red-600/20 text-red-400 p-2 rounded-lg text-sm font-bold hover:bg-red-600/40 transition">Keluar Akun</button>
-      </nav>
+    </div>
 
-      <!-- Area Konten -->
-      <main class="flex-grow p-4 md:p-6 print-container overflow-y-auto h-screen print:h-auto print:overflow-visible print:block bg-[#f0f4f8] w-full">
-        <div class="print-only text-center border-b-2 border-black pb-2 mb-4">
-          <p class="text-right italic text-[9px] text-black mb-1">No. DP. G.01/DP/HRGA&amp;IT/HR.01/03/01</p>
-          <h1 class="text-lg font-black uppercase tracking-wide text-black">PT. PERSADA MEDIKA UTAMA (GRANOSTIC CENTER)</h1>
-          <p class="text-[10px] font-semibold text-black">Dokumen Resmi Penilaian Kinerja (KPI) Karyawan</p>
+    <!-- AREA KONTEN (Kanan) -->
+    <div class="flex-grow p-4 md:p-6 print-container overflow-y-auto h-screen w-full">
+
+        <!-- HEADER SURAT KOP (Hanya muncul saat print PDF) -->
+        <div class="hidden print:block text-center border-b-2 border-black pb-2 mb-4">
+            <p class="text-right italic text-[9px] text-black mb-1">No. DP. G.01/DP/HRGA&IT/HR.01/03/01</p>
+            <h1 class="text-lg font-black uppercase tracking-wide text-black">PT. PERSADA MEDIKA UTAMA (GRANOSTIC CENTER)</h1>
+            <p class="text-[10px] font-semibold text-black">Dokumen Resmi Penilaian Kinerja (KPI) Karyawan</p>
         </div>
 
-        <!-- SEKSI 1: PENILAIAN -->
-        <div id="sec-penilaian" class="hidden space-y-4 max-w-7xl mx-auto print:block">
-          <div class="no-print bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-wrap gap-4 items-center">
-            <!-- DINAMIS TAHUN SAMPAI 2100 -->
-            <select id="periodeFilter" class="p-2 border rounded-lg text-sm font-bold bg-gray-50 outline-none" onchange="loadData()"></select>
-            <select id="stafSelector" class="p-2 border rounded-lg text-sm flex-grow bg-gray-50 outline-none" onchange="renderKPI()">
-              <option value="">-- Pilih Staf --</option>
-            </select>
-            <button onclick="window.print()" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-700 shadow transition">🖨️ Cetak PDF</button>
-          </div>
-
-          <div id="emptyState" class="text-center py-16 text-gray-400 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
-            <div class="text-4xl mb-3">📄</div>
-            <div id="emptyText" class="font-semibold text-sm">Silakan pilih nama staf.</div>
-          </div>
-
-          <div id="kpiWorkspace" class="hidden space-y-4 bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 print:p-0 print:border-none print:shadow-none">
-            <div class="border border-gray-300 rounded-lg p-3 md:p-4 flex flex-col md:flex-row justify-between items-start mb-2 gap-4">
-              <div class="space-y-1">
-                <h2 class="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1">LEMBAR EVALUASI KPI</h2>
-                <table class="text-xs md:text-sm font-semibold text-slate-800">
-                  <tr><td class="w-20 md:w-24 py-1 text-gray-500">Nama Staf</td><td class="px-2">:</td><td id="namaDinilai" class="font-bold"></td></tr>
-                  <tr><td class="py-1 text-gray-500">Jabatan</td><td class="px-2">:</td><td id="jabatanDinilai"></td></tr>
-                  <tr><td class="py-1 text-gray-500">NIK</td><td class="px-2">:</td><td id="nikDinilai"></td></tr>
-                  <tr><td class="py-1 text-gray-500">Periode</td><td class="px-2">:</td><td id="lblPeriode"></td></tr>
-                </table>
-              </div>
-              <div class="text-right border border-gray-200 bg-slate-50 rounded-lg p-3 min-w-[160px] flex-shrink-0">
-                <div class="text-[9px] text-gray-500 font-bold tracking-wider mb-1 uppercase" id="statusDokumen">STATUS: DRAFT</div>
-                <div class="text-[10px] text-gray-400 font-semibold">Nilai Akhir Kinerja</div>
-                <div id="skorAkhir" class="text-3xl font-black text-[#00A693]">0.00</div>
-                <div id="lblGrade" class="text-[10px] font-bold text-slate-700 mt-1 uppercase">Grade Hasil: -</div>
-              </div>
-            </div>
-
-            <div id="viewOnlyAlert" class="hidden no-print bg-blue-50 text-blue-800 text-xs p-3 rounded-lg border border-blue-200 font-semibold">
-              ℹ️ Anda mengakses dokumen ini dalam mode <span class="font-bold uppercase">VIEW ONLY</span>.
-            </div>
-            <div id="lockAlert" class="hidden no-print bg-red-50 text-red-800 text-xs p-3 rounded-lg border border-red-200 font-semibold">
-              🔒 Dokumen terkunci. Perubahan tidak diperbolehkan.
-            </div>
-
-            <!-- SECTION A -->
-            <div class="space-y-2">
-              <h3 class="bg-teal-50 text-teal-800 px-3 py-2 font-bold text-xs border border-teal-200 uppercase print:bg-white print:border-b-2 print:border-black print:px-0">SECTION A: Hard Skill / Kompetensi Teknis (Bobot 70%)</h3>
-              <div class="overflow-x-auto">
-                <table class="w-full text-left text-[10px] md:text-xs border-collapse border border-gray-300">
-                  <thead>
-                    <tr class="bg-teal-600 text-white border-b border-gray-300 print:bg-gray-100 print:text-black">
-                      <th class="p-2 border border-gray-300 text-center w-8">No</th>
-                      <th class="p-2 border border-gray-300 w-32">KPI</th>
-                      <th class="p-2 border border-gray-300 min-w-[200px]">Indikator / Orientasi Penilaian</th>
-                      <th class="p-2 border border-gray-300 w-32">Indicator Tools</th>
-                      <th class="p-2 border border-gray-300 w-16 text-center">Satuan</th>
-                      <th class="p-2 border border-gray-300 w-16 text-center">Target</th>
-                      <th class="p-2 border border-gray-300 w-16 text-center">Bobot</th>
-                      <th class="p-2 border border-gray-300 w-20 text-center">Skor (0-5)</th>
-                      <th class="p-2 border border-gray-300 min-w-[150px]">Catatan Realisasi</th>
-                    </tr>
-                  </thead>
-                  <tbody id="hardSkillTable"></tbody>
-                </table>
-              </div>
-              <div class="flex justify-end text-xs font-semibold text-slate-600 py-1 bg-gray-50 px-2 rounded border">
-                <span class="mr-auto">Total Bobot: <span id="totalBobotHard" class="font-bold text-sm">0%</span></span>
-              </div>
-            </div>
-
-            <!-- SECTION B -->
-            <div class="space-y-2 pt-4">
-              <h3 class="bg-teal-50 text-teal-800 px-3 py-2 font-bold text-xs border border-teal-200 uppercase print:bg-white print:border-b-2 print:border-black print:px-0">SECTION B: Soft Skill / Perilaku Budaya Kerja (Bobot 30%)</h3>
-              <div class="overflow-x-auto">
-                <table class="w-full text-left text-[10px] md:text-xs border-collapse border border-gray-300">
-                  <thead>
-                    <tr class="bg-teal-600 text-white border-b border-gray-300 print:bg-gray-100 print:text-black">
-                      <th class="p-2 border border-gray-300 text-center w-8">No</th>
-                      <th class="p-2 border border-gray-300 w-32">KPI / Parameter</th>
-                      <th class="p-2 border border-gray-300 min-w-[250px]">Indikator / Orientasi Perilaku Kerja</th>
-                      <th class="p-2 border border-gray-300 w-20 text-center">Target</th>
-                      <th class="p-2 border border-gray-300 w-16 text-center">Bobot</th>
-                      <th class="p-2 border border-gray-300 w-20 text-center">Skor (0-5)</th>
-                      <th class="p-2 border border-gray-300 min-w-[150px]">Catatan Perilaku</th>
-                    </tr>
-                  </thead>
-                  <tbody id="softSkillTable"></tbody>
-                </table>
-              </div>
-              <div class="flex justify-end text-xs font-semibold text-slate-600 py-1 bg-gray-50 px-2 rounded border">
-                <span class="mr-auto">Total Bobot: <span id="totalBobotSoft" class="font-bold text-sm">0%</span></span>
-              </div>
-            </div>
-
-            <!-- SISTEM INTERPRETASI & RENTANG NILAI -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 text-[9px] text-black avoid-break page-break">
-              <div>
-                <h4 class="font-bold text-teal-700 uppercase mb-1">Sistem Penilaian & Interpretasi Nilai</h4>
-                <table class="w-full border-collapse border border-gray-300 bg-white">
-                  <tr><td class="border p-1 text-center font-bold w-6">5</td><td class="border p-1 w-32">Sangat Baik / Teladan</td><td class="border p-1">Kinerja luar biasa berdampak besar.</td></tr>
-                  <tr><td class="border p-1 text-center font-bold">4</td><td class="border p-1">Baik / Melebihi Ekspektasi</td><td class="border p-1">Kinerja konsisten melampaui target.</td></tr>
-                  <tr><td class="border p-1 text-center font-bold">3</td><td class="border p-1">Standar / Cukup</td><td class="border p-1">Kinerja mencapai target stabil.</td></tr>
-                  <tr><td class="border p-1 text-center font-bold">2</td><td class="border p-1">Kurang / Butuh Perbaikan</td><td class="border p-1">Kinerja di bawah target.</td></tr>
-                  <tr><td class="border p-1 text-center font-bold">1</td><td class="border p-1">Sangat Kurang</td><td class="border p-1">Kinerja jauh di bawah target.</td></tr>
-                </table>
-              </div>
-              <div>
-                <h4 class="font-bold text-teal-700 uppercase mb-1">Rentang Nilai Kelayakan (Grade)</h4>
-                <table class="w-full border-collapse border border-gray-300 bg-white">
-                  <tr><td class="border p-1 text-center font-bold w-16">4.50 - 5.00</td><td class="border p-1 font-bold text-emerald-600 w-16">Grade A</td><td class="border p-1">Sangat Baik (Rekomendasi promosi)</td></tr>
-                  <tr><td class="border p-1 text-center font-bold">3.50 - 4.49</td><td class="border p-1 font-bold text-teal-600">Grade B</td><td class="border p-1">Baik (Masuk talent pool)</td></tr>
-                  <tr><td class="border p-1 text-center font-bold">2.50 - 3.49</td><td class="border p-1 font-bold text-amber-600">Grade C</td><td class="border p-1">Cukup (Dipertahankan)</td></tr>
-                  <tr><td class="border p-1 text-center font-bold">1.50 - 2.49</td><td class="border p-1 font-bold text-orange-600">Grade D</td><td class="border p-1">Kurang (Wajib coaching)</td></tr>
-                  <tr><td class="border p-1 text-center font-bold">0.00 - 1.49</td><td class="border p-1 font-bold text-red-600">Grade E</td><td class="border p-1">Sangat Kurang (Risiko PHK)</td></tr>
-                </table>
-              </div>
-            </div>
-
-            <!-- TANDA TANGAN BERJENJANG -->
-            <div class="print-flex flex flex-wrap justify-between text-center text-[10px] mt-8 pt-4 w-full text-black avoid-break">
-              <div class="w-1/5 flex flex-col items-center px-1">
-                <p class="font-semibold text-gray-500 mb-1">Yang Bersangkutan</p>
-                <img id="qrStaff" src="" class="w-14 h-14 border p-1 my-1" />
-                <p class="font-bold underline mt-2" id="ttdStaff">...</p>
-                <p class="text-[9px] text-gray-500">Karyawan</p>
-              </div>
-              <div class="w-1/5 flex flex-col items-center px-1">
-                <p class="font-semibold text-gray-500 mb-1">Dinilai Oleh</p>
-                <img id="qrAtasan" src="" class="w-14 h-14 border p-1 my-1 opacity-0 transition-opacity duration-300" />
-                <p class="font-bold underline mt-2" id="ttdAtasan">...</p>
-                <p class="text-[9px] text-gray-500" id="ttdAtasanJabatan">Atasan Langsung</p>
-              </div>
-              <div class="w-1/5 flex flex-col items-center px-1">
-                <p class="font-semibold text-gray-500 mb-1">Diverifikasi Oleh</p>
-                <img id="qrVerif1" src="" class="w-14 h-14 border p-1 my-1 opacity-0 transition-opacity duration-300" />
-                <p class="font-bold underline mt-2" id="ttdVerif1Nama">...</p>
-                <p class="text-[9px] text-gray-500" id="ttdVerif1Jabatan">Manager Terkait</p>
-              </div>
-              <div class="w-1/5 flex flex-col items-center px-1">
-                <p class="font-semibold text-gray-500 mb-1">Diverifikasi Oleh</p>
-                <img id="qrVerif2" src="" class="w-14 h-14 border p-1 my-1 opacity-0 transition-opacity duration-300" />
-                <p class="font-bold underline mt-2" id="ttdVerif2Nama">Deiky Catur Hadi, S.Pd</p>
-                <p class="text-[9px] text-gray-500" id="ttdVerif2Jabatan">HRGA & IT Manager</p>
-              </div>
-              <div class="w-1/5 flex flex-col items-center px-1">
-                <p class="font-semibold text-gray-500 mb-1">Disahkan Oleh</p>
-                <img id="qrDireksi" src="" class="w-14 h-14 border p-1 my-1 opacity-0 transition-opacity duration-300" />
-                <p class="font-bold underline mt-2" id="ttdDisahkanNama">...</p>
-                <p class="text-[9px] text-gray-500" id="ttdDisahkanJabatan">Direksi</p>
-              </div>
-            </div>
-
-            <!-- AUDIT TRAIL LOG -->
-            <div id="auditTrailContainer" class="bg-slate-50 rounded-lg border border-gray-200 p-4 border-l-4 border-l-teal-600 mt-6 shadow-inner">
-              <h3 class="font-bold border-b pb-2 mb-2 text-slate-700 text-[11px] uppercase tracking-wider flex items-center gap-2"><span>📜</span> AUDIT TRAIL(S) SECURITY LOG:</h3>
-              <div id="auditLog" class="space-y-1.5 text-[11px] max-h-40 overflow-y-auto mb-4 text-slate-700 font-mono bg-white p-2 border rounded"></div>
-
-              <div id="actionArea" class="pt-3 border-t border-gray-300 flex flex-col lg:flex-row gap-3 items-end no-print">
-                <div class="flex-grow w-full">
-                  <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Tulis Catatan / Alasan Perubahan:</label>
-                  <input type="text" id="alasanLog" maxlength="250" oninput="this.value = this.value.replace(/[<>]/g, '')" placeholder="Tulis alasan jika mengubah, mengajukan, atau mengembalikan dokumen..." class="w-full p-2 border border-gray-300 rounded bg-white text-xs focus:border-teal-500 outline-none" />
-                </div>
-                <div class="flex flex-wrap gap-2" id="actionButtonsGroup">
-                  <button id="btnKembalikan" onclick="kembalikanDokumen()" class="hidden bg-orange-500 text-white px-4 py-2 rounded font-bold text-xs hover:bg-orange-600 transition shadow-sm">🔙 Kembalikan</button>
-                  <button id="btnSimpan" onclick="simpanData()" class="bg-gray-100 border border-gray-300 text-gray-700 px-4 py-2 rounded font-bold text-xs hover:bg-gray-200 transition shadow-sm">💾 Simpan Draft</button>
-                  <button id="btnAjukan" onclick="updateStatus('PENILAIAN_SELESAI')" class="hidden bg-blue-600 text-white px-4 py-2 rounded font-bold text-xs hover:bg-blue-700 transition shadow-sm">📤 Ajukan</button>
-                  <button id="btnVerifikasi1" onclick="updateStatus('TERVERIFIKASI_ATASAN')" class="hidden bg-indigo-600 text-white px-4 py-2 rounded font-bold text-xs hover:bg-indigo-700 transition shadow-sm">✔️ Verifikasi MGR</button>
-                  <button id="btnVerifikasi2" onclick="updateStatus('TERVERIFIKASI_HR')" class="hidden bg-purple-600 text-white px-4 py-2 rounded font-bold text-xs hover:bg-purple-700 transition shadow-sm">✔️ Verif HRGA</button>
-                  <button id="btnSahkan" onclick="updateStatus('DISAHKAN_DIREKSI')" class="hidden bg-[#00A693] text-white px-4 py-2 rounded font-bold text-xs hover:bg-teal-700 transition shadow-sm">✅ Sahkan</button>
-                  <button id="btnBukaKunci" onclick="bukaKunci()" class="hidden bg-red-600 text-white px-4 py-2 rounded font-bold text-xs hover:bg-red-700 transition shadow-sm">🔓 Buka Kunci (Revisi)</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- SEKSI 2: REKAPITULASI -->
-        <div id="sec-rekap" class="space-y-6 max-w-7xl mx-auto">
-          <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <div class="flex justify-between items-center mb-4">
-              <h2 class="text-lg font-black text-gray-800 uppercase">Monitoring Penilaian Karyawan</h2>
-              <button id="btnDownloadCSV" onclick="downloadCSV()" class="hidden bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-emerald-700 shadow transition">📥 Download Massal (CSV)</button>
-            </div>
+        <!-- ============================================== -->
+        <!-- MENU 1: LEMBAR PENILAIAN -->
+        <!-- ============================================== -->
+        <div id="sec-penilaian" class="space-y-4 max-w-7xl mx-auto print:block block">
             
-            <div class="overflow-x-auto">
-              <table class="w-full text-left text-sm border-collapse border border-gray-200" id="tableRekapData">
-                <thead>
-                  <tr class="bg-slate-800 text-white border-b">
-                    <th class="p-3 border">Nama Staf</th>
-                    <th class="p-3 border">Jabatan / Dept</th>
-                    <th class="p-3 border">Atasan Penilai</th>
-                    <th class="p-3 text-center border">Total Akhir</th>
-                    <th class="p-3 border text-center">Status Dokumen</th>
-                    <th class="p-3 border text-center no-print">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody id="rekapTableBody" class="divide-y divide-gray-200"></tbody>
-              </table>
+            <!-- Kontrol Pemilihan Periode (Sembunyi saat Print) -->
+            <div class="print:hidden bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div class="flex gap-2 w-full md:w-auto">
+                    <select id="pilihTahun" class="border border-gray-300 p-2 rounded-lg text-sm focus:outline-none focus:border-[#00A693]">
+                        <option value="">Pilih Tahun</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                    <select id="pilihSemester" class="border border-gray-300 p-2 rounded-lg text-sm focus:outline-none focus:border-[#00A693]">
+                        <option value="">Pilih Semester</option>
+                        <option value="Semester 1">Semester 1</option>
+                        <option value="Semester 2">Semester 2</option>
+                    </select>
+                </div>
+                <!-- Tombol Cetak Arsip PDF hanya untuk mode cetak manual dari Lembar Penilaian -->
+                <button onclick="window.print()" class="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-gray-700 w-full md:w-auto">🖨️ Cetak PDF</button>
             </div>
-          </div>
+
+            <!-- Workspace Lembar Penilaian (Disembunyikan sebelum periode dipilih) -->
+            <div id="kpiWorkspace" class="hidden space-y-4">
+                <!-- Header Info Karyawan -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
+                    <div>
+                        <p class="text-xs text-gray-500 font-bold uppercase mb-2">Lembar Evaluasi KPI</p>
+                        <table class="text-sm text-gray-700">
+                            <tr><td class="pr-4 py-1">Nama Staf</td><td class="font-bold">: <span id="infoNama">-</span></td></tr>
+                            <tr><td class="pr-4 py-1">Jabatan</td><td class="font-bold">: <span id="infoJabatan">-</span></td></tr>
+                        </table>
+                    </div>
+                    <div class="text-right p-4 bg-gray-50 rounded-lg border border-gray-100">
+                        <div class="text-[10px] text-gray-500 font-bold uppercase">Nilai Akhir Kinerja</div>
+                        <div id="infoNilaiAkhir" class="text-3xl font-black text-[#00A693]">0.00</div>
+                    </div>
+                </div>
+
+                <!-- Tabel Indikator KPI (Dinamis via Google Script) -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <table class="w-full text-left text-sm border-collapse" id="tableIndikator">
+                        <thead class="bg-[#00A693] text-white">
+                            <tr>
+                                <th class="p-3 border">No</th>
+                                <th class="p-3 border">KPI</th>
+                                <th class="p-3 border">Indikator Penilaian</th>
+                                <th class="p-3 border text-center">Bobot</th>
+                                <th class="p-3 border text-center">Skor (1-5)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyIndikator" class="text-gray-700">
+                            <!-- Baris di-generate via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
-      </main>
+
+        <!-- ============================================== -->
+        <!-- MENU 2: MONITORING PENILAIAN (ANTREAN / ARSIP) -->
+        <!-- ============================================== -->
+        <div id="sec-monitoring" class="hidden space-y-6 max-w-7xl mx-auto print:hidden">
+            <h2 class="text-xl font-black text-gray-800 uppercase mb-2">Monitoring Penilaian Karyawan</h2>
+            
+            <!-- FILTER MONITORING -->
+            <div class="flex flex-col md:flex-row gap-4 mb-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <select id="filterTahunMonitoring" class="border border-gray-300 p-2 rounded-md text-sm" onchange="renderRekap()">
+                    <option value="">Semua Tahun</option>
+                    <option value="2025">2025</option>
+                    <option value="2026">2026</option>
+                </select>
+                <select id="filterSemesterMonitoring" class="border border-gray-300 p-2 rounded-md text-sm" onchange="renderRekap()">
+                    <option value="">Semua Semester</option>
+                    <option value="Semester 1">Semester 1</option>
+                    <option value="Semester 2">Semester 2</option>
+                </select>
+            </div>
+
+            <!-- Tabel Data Monitoring -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                <table class="w-full text-left text-sm border-collapse">
+                    <thead class="bg-slate-800 text-white">
+                        <tr>
+                            <th class="p-3 border">Nama Staf</th>
+                            <th class="p-3 border">Departemen</th>
+                            <th class="p-3 border text-center">Total Akhir</th>
+                            <th class="p-3 border text-center">Status Dokumen</th>
+                            <th class="p-3 border text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyMonitoring" class="text-gray-700">
+                        <!-- Data di-render di sini -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- MENU 3: DASHBOARD GLOBAL KPI (GRAFIK) -->
+        <!-- ============================================== -->
+        <div id="sec-dashboard" class="hidden space-y-6 max-w-7xl mx-auto print:hidden">
+            <h2 class="text-xl font-black text-gray-800 uppercase mb-4">Dashboard Global KPI</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Grafik Performa Departemen (Global) -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h3 class="font-bold text-gray-700 mb-4">Performa Rata-Rata Departemen</h3>
+                    <canvas id="chartDepartemen"></canvas>
+                </div>
+                
+                <!-- Grafik Tren Individu -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h3 class="font-bold text-gray-700 mb-4">Tren Performa Individu</h3>
+                    <select id="filterKaryawanDashboard" class="w-full border border-gray-300 p-2 rounded-md mb-4 text-sm" onchange="renderIndividualChart()">
+                        <option value="">Pilih Karyawan...</option>
+                    </select>
+                    <canvas id="chartIndividu"></canvas>
+                </div>
+            </div>
+        </div>
+
     </div>
 
-    <!-- MODAL GANTI PASSWORD -->
-    <div id="pwModal" class="hidden no-print fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 border-t-8 border-[#00A693]">
-        <h2 class="text-lg font-black text-slate-800 mb-1">🔑 Ganti Password</h2>
-        <p id="pwModalHint" class="text-xs text-gray-500 mb-4">Perbarui kata sandi Anda.</p>
-        <div class="space-y-3">
-          <input type="password" id="pwLama" placeholder="Password lama" class="w-full p-3 border rounded-lg bg-gray-50 text-sm outline-none" />
-          <input type="password" id="pwBaru" placeholder="Password baru (min. 6 kar)" class="w-full p-3 border rounded-lg bg-gray-50 text-sm outline-none" />
-          <input type="password" id="pwKonfirmasi" placeholder="Ulangi password baru" class="w-full p-3 border rounded-lg bg-gray-50 text-sm outline-none" />
-          <div id="pwMsg" class="text-xs font-semibold"></div>
-        </div>
-        <div class="flex gap-2 mt-5">
-          <button id="pwBtnBatal" onclick="closeGantiPassword()" class="flex-1 border border-gray-300 text-gray-600 p-2 rounded-lg text-sm font-bold">Batal</button>
-          <button id="pwBtnSimpan" onclick="submitGantiPassword()" class="flex-1 bg-[#00A693] text-white p-2 rounded-lg text-sm font-bold">Simpan</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- LOGIKA SISTEM CERDAS & AKSES -->
+    <!-- ========================================== -->
+    <!-- JAVASCRIPT LOGIC - BULLET PROOF -->
+    <!-- ========================================== -->
     <script>
-      // ============================================================
-      // GANTI DENGAN URL DEPLOY CODE.GS BARU ANDA
-      // ============================================================
-      const API_URL = "https://script.google.com/macros/s/AKfycbyZcQNZAjRsgKTVbh4rmgMIUXWMzVboueEOZOdnJaLaniiGkUsEEc-1jpRzhHPP8G2Lqg/exec"; 
-      
-      let MOCK_KARYAWAN = [], MOCK_STRUKTUR = [], globalMasterIndikator = [];
-      let currentUser = null, authToken = null, auditTrails = [], currentDocumentStatus = "DRAFT";
-      let currentStaf = null;
-      let chainAtasan = null, chainVerif1 = null, chainVerif2 = null, chainSahkan = null;
-      let lastCalc = { sumHard: 0, propHard: 0, sumSoft: 0, propSoft: 0, total: 0, grade: "Grade E" };
-      let bobotState = { hardSum: 0, softSum: 0, hardOK: true, softOK: true, ok: true };
+        // Simulasi Data User Session (Akan diganti dari backend via google.script.run)
+        let currentUser = {
+            nama: "Deiky Catur Hadi, S.Pd.",
+            role: "HRGA Manager", // Bisa diganti 'Admin Arsip', 'Direksi', 'Manager', dll
+            departemen: "HRGA",
+            email: "hrga@granostic.com"
+        };
 
-      // GENERATOR TAHUN (S.D 2100)
-      function initPeriodeDropdown() {
-        const sel = document.getElementById("periodeFilter");
-        sel.innerHTML = "";
-        for (let y = 2026; y <= 2100; y++) {
-          sel.innerHTML += `<option value="Semester 1 ${y}">Semester 1 ${y}</option>`;
-          sel.innerHTML += `<option value="Semester 2 ${y}">Semester 2 ${y}</option>`;
-        }
-      }
+        let rawMonitoringData = []; // Data tabel (Mock Data untuk simulasi front-end)
+        let rawDashboardData = { individual: [], departemen: [] }; // Data grafik
+        let deptChartInstance = null;
+        let indvChartInstance = null;
 
-      async function apiPost(payload) {
-        payload.token = authToken; 
-        const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
-        const j = await res.json();
-        if (j && j.needLogin) {
-          logoutSistem(true);
-          throw new Error("Sesi berakhir");
-        }
-        return j;
-      }
+        // Saat halaman dimuat
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById('sidebarUserName').innerText = currentUser.nama;
+            document.getElementById('sidebarUserRole').innerText = currentUser.role;
 
-      async function loadMasterData() {
-        const [rK, rI, rS] = await Promise.all([
-          apiPost({action: "getKaryawan"}),
-          apiPost({action: "getKPI"}),
-          apiPost({action: "getStruktur"}),
-        ]);
-        MOCK_KARYAWAN = (rK && rK.data) || [];
-        globalMasterIndikator = (rI && rI.data) || [];
-        MOCK_STRUKTUR = (rS && rS.data) || [];
-      }
+            // Atur Visibilitas Menu Berdasarkan Role
+            aturHakAksesMenu();
 
-      window.onload = function () {
-        initPeriodeDropdown();
-        // Cek Session Storage
-        const savedToken = sessionStorage.getItem("kpi_token");
-        const savedUser = sessionStorage.getItem("kpi_user");
-        if(savedToken && savedUser) {
-          authToken = savedToken;
-          currentUser = JSON.parse(savedUser);
-          masukDashboard();
-        }
-      };
+            // Setup Event Listener Validasi Lembar Penilaian
+            document.getElementById('pilihTahun').addEventListener('change', checkPeriodeValidation);
+            document.getElementById('pilihSemester').addEventListener('change', checkPeriodeValidation);
 
-      function getTimestamp() {
-        const now = new Date();
-        const p = (n) => n.toString().padStart(2, "0");
-        return `[${p(now.getDate())}/${p(now.getMonth() + 1)}/${now.getFullYear()} ${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}]`;
-      }
-
-      function switchMenu(menu) {
-        document.getElementById("sec-penilaian").classList.add("hidden");
-        document.getElementById("sec-rekap").classList.add("hidden");
-        document.getElementById("btn-penilaian").classList.remove("active");
-        document.getElementById("btn-rekap").classList.remove("active");
-        document.getElementById("sec-" + menu).classList.remove("hidden");
-        document.getElementById("btn-" + menu).classList.add("active");
-        if (menu === "rekap") renderRekap();
-      }
-
-      function getAccessLevel(user) {
-        if (!user) return "STAFF";
-        const email = String(user.email || "").trim().toLowerCase();
-        if(email === "hrga.granostic@gmail.com") return "ADMIN_ARSIP";
-
-        const sa = user.superAdmin === true || ["yes", "true", "1", "ya"].includes(String(user.superAdmin || "").toLowerCase().trim());
-        const role = String(user.role || "").toLowerCase().trim();
-        const jab = String(user.jabatan || "").toLowerCase().trim();
-        
-        if (sa || role === "direksi" || (jab.includes("hrga") && jab.includes("manager"))) return "SUPER_ADMIN";
-        if (jab.includes("manager") && jab.includes("lab") && jab.includes("cln")) return "LAB_CLN_MANAGER";
-        if (role === "manager" || role === "mgr" || jab.includes("manager")) return "MANAGER";
-        if (role === "supervisor" || role === "spv" || jab.includes("spv")) return "SPV";
-        return "STAFF";
-      }
-
-      document.getElementById("loginForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById("btnLogin");
-        btn.disabled = true; btn.innerText = "Memeriksa...";
-        try {
-          const j = await apiPost({ action: "checkLogin", email: document.getElementById("email").value.trim(), password: document.getElementById("pass").value.trim() });
-          if (j.ok && j.user) {
-            authToken = j.token; currentUser = j.user;
-            sessionStorage.setItem("kpi_token", authToken);
-            sessionStorage.setItem("kpi_user", JSON.stringify(currentUser));
-            btn.innerText = "Memuat data...";
-            masukDashboard();
-          } else { alert(j.error || "Email/Password salah!"); btn.disabled = false; btn.innerText = "Masuk Sistem"; }
-        } catch (err) { alert("Server Error: " + err.message); btn.disabled = false; btn.innerText = "Masuk Sistem"; }
-      });
-
-      async function masukDashboard() {
-        await loadMasterData();
-        document.getElementById("loginView").classList.add("hidden");
-        document.getElementById("mainView").classList.remove("hidden");
-        document.getElementById("loggedUserName").innerText = currentUser.nama;
-        document.getElementById("userRoleBadge").innerText = currentUser.jabatan;
-        
-        const accLevel = getAccessLevel(currentUser);
-        if(accLevel === "ADMIN_ARSIP") {
-          document.getElementById("btnDownloadCSV").classList.remove("hidden");
-          switchMenu("rekap");
-        } else {
-          document.getElementById("btn-penilaian").classList.remove("hidden");
-          populateStafDropdown();
-          switchMenu("penilaian");
-        }
-        if (currentUser.mustChange) openGantiPassword(true);
-      }
-
-      function logoutSistem(force) {
-        sessionStorage.removeItem("kpi_token"); sessionStorage.removeItem("kpi_user");
-        if(!force) alert("Anda telah keluar.");
-        window.location.reload();
-      }
-
-      function populateStafDropdown() {
-        const dropdown = document.getElementById("stafSelector");
-        const myEmail = (currentUser.email || "").trim().toLowerCase();
-        const myDept = (currentUser.departemen || "").trim().toLowerCase();
-        const accLevel = getAccessLevel(currentUser);
-
-        const directSubordinates = MOCK_STRUKTUR.filter(s => (s.email_penilai || "").trim().toLowerCase() === myEmail).map(s => (s.email_staf_dinilai || "").trim().toLowerCase());
-        dropdown.innerHTML = '<option value="">-- Pilih Staf --</option>';
-
-        MOCK_KARYAWAN.forEach((k) => {
-          const kEmail = (k.email || "").trim().toLowerCase();
-          const kDept = (k.departemen || "").trim().toLowerCase();
-          let canView = false;
-          
-          if (accLevel === "SUPER_ADMIN" || accLevel === "ADMIN_ARSIP") canView = true;
-          else if (kEmail === myEmail) canView = true;
-          else if (directSubordinates.includes(kEmail)) canView = true;
-          else if (accLevel === "MANAGER" && kDept === myDept) canView = true;
-          else if (accLevel === "LAB_CLN_MANAGER" && (kDept.includes("lab") || kDept.includes("clinic"))) canView = true;
-          
-          if (canView) dropdown.innerHTML += `<option value="${k.nik}">${k.nama} (${k.jabatan})</option>`;
+            // Init Data Dummy untuk tampilan awal (Harus diganti dengan google.script.run)
+            inisialisasiDataDummy();
         });
-      }
 
-      function loadData() {
-        document.getElementById("lblPeriode").innerText = document.getElementById("periodeFilter").value;
-        if (document.getElementById("stafSelector").value) renderKPI();
-      }
+        // FUNGSI NAVIGASI MENU
+        function switchMenu(menuId) {
+            // Sembunyikan semua section
+            document.getElementById('sec-penilaian').classList.add('hidden');
+            document.getElementById('sec-monitoring').classList.add('hidden');
+            document.getElementById('sec-dashboard').classList.add('hidden');
 
-      function renderKPI() {
-        const selectedNik = document.getElementById("stafSelector").value;
-        if (!selectedNik) return;
+            // Reset tombol nav
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
 
-        document.getElementById("kpiWorkspace").classList.remove("hidden");
-        document.getElementById("emptyState").classList.add("hidden");
+            // Tampilkan yang dipilih
+            document.getElementById(`sec-${menuId}`).classList.remove('hidden');
+            document.getElementById(`btn-${menuId}`).classList.add('active');
 
-        const staf = MOCK_KARYAWAN.find(k => String(k.nik) === String(selectedNik));
-        currentStaf = staf;
-        const stafEmail = (staf.email || "").trim().toLowerCase();
-        const stafRole = (staf.jabatan || "").trim().toLowerCase();
+            // Trigger Load Data Khusus
+            if(menuId === 'monitoring') renderRekap();
+            if(menuId === 'dashboard') loadDashboardData();
+        }
 
-        document.getElementById("namaDinilai").innerText = staf.nama;
-        document.getElementById("jabatanDinilai").innerText = staf.jabatan;
-        document.getElementById("nikDinilai").innerText = staf.nik;
-        document.getElementById("ttdStaff").innerText = staf.nama;
-
-        const strukturLink = MOCK_STRUKTUR.find(s => (s.email_staf_dinilai || "").trim().toLowerCase() === stafEmail);
-        let atasanEmail = strukturLink ? (strukturLink.email_penilai || "").trim().toLowerCase() : "";
-        let atasanObj = atasanEmail ? MOCK_KARYAWAN.find(k => (k.email || "").trim().toLowerCase() === atasanEmail) : { nama: "-", jabatan: "-", email: "-" };
-
-        document.getElementById("ttdAtasan").innerText = atasanObj.nama;
-        document.getElementById("ttdAtasanJabatan").innerText = atasanObj.jabatan;
-
-        const dirUtamaObj = MOCK_KARYAWAN.find(k => (k.jabatan || "").toLowerCase() === "direktur utama") || { nama: "Dwi Poetra Sedjat, Ir.", jabatan: "Direktur Utama", email: "" };
-        const direkturObj = MOCK_KARYAWAN.find(k => (k.jabatan || "").toLowerCase() === "direktur" || (k.jabatan || "").toLowerCase().includes("bod")) || { nama: "dr. May Fanny Tanzilia, Sp.PK", jabatan: "Direktur", email: "" };
-        const hrObj = MOCK_KARYAWAN.find(k => (k.jabatan || "").toLowerCase().includes("hrga") && (k.jabatan || "").toLowerCase().includes("manager")) || { nama: "Deiky Catur Hadi, S.Pd", jabatan: "HRGA & IT Manager", email: "" };
-
-        const atasanRole = (atasanObj.jabatan || "").trim().toLowerCase();
-        let verif1Obj = { nama: "-", jabatan: "-", email: "-" };
-        let verif2Obj = hrObj; // Selalu HRGA untuk Verif 2
-        let sahkanObj = direkturObj;
-
-        if (stafRole.includes("manager") || stafRole.includes("mgr")) {
-          verif1Obj = direkturObj; sahkanObj = dirUtamaObj;
-          if (stafRole.includes("hr")) verif2Obj = direkturObj;
-        } else if (stafRole.includes("spv") || stafRole.includes("supervisor")) {
-          verif1Obj = atasanObj;
-        } else {
-          if (atasanRole.includes("manager") || atasanRole.includes("mgr") || atasanRole.includes("direktur")) {
-            verif1Obj = atasanObj;
-          } else {
-            const spvLink = MOCK_STRUKTUR.find(s => (s.email_staf_dinilai || "").trim().toLowerCase() === atasanEmail);
-            if (spvLink && spvLink.email_penilai) {
-              verif1Obj = MOCK_KARYAWAN.find(k => (k.email || "").trim().toLowerCase() === spvLink.email_penilai.trim().toLowerCase()) || { nama: "-", jabatan: "-", email: "-" };
+        // HAK AKSES MENU (RBAC)
+        function aturHakAksesMenu() {
+            const role = currentUser.role;
+            const btnDash = document.getElementById('btn-dashboard');
+            
+            // Dashboard Global hanya untuk yang punya bawahan atau direksi
+            if (role === 'Superadmin' || role === 'Direksi' || role === 'HRGA Manager' || role === 'Manager' || role === 'Supervisor') {
+                btnDash.classList.remove('hidden');
             }
-          }
         }
 
-        chainAtasan = atasanObj; chainVerif1 = verif1Obj; chainVerif2 = verif2Obj; chainSahkan = sahkanObj;
-
-        document.getElementById("ttdVerif1Nama").innerText = verif1Obj.nama; document.getElementById("ttdVerif1Jabatan").innerText = verif1Obj.jabatan;
-        document.getElementById("ttdVerif2Nama").innerText = verif2Obj.nama; document.getElementById("ttdVerif2Jabatan").innerText = verif2Obj.jabatan;
-        document.getElementById("ttdDisahkanNama").innerText = sahkanObj.nama; document.getElementById("ttdDisahkanJabatan").innerText = sahkanObj.jabatan;
-
-        const myEmail = (currentUser.email || "").trim().toLowerCase();
-        const isSelf = stafEmail === myEmail;
-        const canEdit = !isSelf && myEmail === atasanEmail && getAccessLevel(currentUser) !== "ADMIN_ARSIP";
-
-        if (!canEdit) { document.getElementById("viewOnlyAlert").classList.remove("hidden"); document.getElementById("btnSimpan").classList.add("hidden"); } 
-        else { document.getElementById("viewOnlyAlert").classList.add("hidden"); document.getElementById("btnSimpan").classList.remove("hidden"); }
-
-        ["btnAjukan", "btnVerifikasi1", "btnVerifikasi2", "btnSahkan", "btnKembalikan"].forEach(id => document.getElementById(id).classList.add("hidden"));
-
-        // Setup UI Tombol (Muncul jika email cocok)
-        if (myEmail === atasanEmail && !isSelf) document.getElementById("btnAjukan").classList.remove("hidden");
-        if (myEmail === (verif1Obj.email || "").trim().toLowerCase()) { document.getElementById("btnVerifikasi1").classList.remove("hidden"); document.getElementById("btnKembalikan").classList.remove("hidden"); }
-        if (myEmail === (verif2Obj.email || "").trim().toLowerCase()) { document.getElementById("btnVerifikasi2").classList.remove("hidden"); document.getElementById("btnKembalikan").classList.remove("hidden"); }
-        if (myEmail === (sahkanObj.email || "").trim().toLowerCase()) { document.getElementById("btnSahkan").classList.remove("hidden"); document.getElementById("btnKembalikan").classList.remove("hidden"); }
-
-        let htmlHard = "", htmlSoft = "", idxHard = 1, idxSoft = 1;
-        const renderSelect = () => {
-          const btnDis = canEdit ? "" : "disabled";
-          const cursor = canEdit ? "cursor-pointer hover:bg-teal-50" : "cursor-not-allowed";
-          let html = `<div class="skor-group inline-flex gap-px items-center justify-center"><input type="hidden" class="kpi-val-input" value="0">`;
-          for (let v = 1; v <= 5; v++) html += `<button type="button" data-val="${v}" ${btnDis} onclick="setSkor(this)" class="skor-btn w-5 h-6 text-[10px] font-bold border border-gray-300 rounded bg-white text-slate-600 ${cursor}">${v}</button>`;
-          html += `<span class="skor-print print-only font-bold text-sm">-</span></div>`;
-          return html;
-        };
-
-        const renderInput = (place) => `<input type="text" placeholder="${place}" ${!canEdit ? "disabled class='w-full p-1.5 border rounded text-xs bg-gray-100 text-gray-400 outline-none'" : "class='w-full p-1.5 border border-gray-300 rounded text-xs text-left bg-white focus:border-teal-500 outline-none' maxlength='250'"} oninput="this.value = this.value.replace(/[<>]/g, '')">`;
-
-        globalMasterIndikator.forEach((item) => {
-          const kat = (item.jenis || "").toLowerCase().trim();
-          const itemJabatan = (item.jabatan || "").toLowerCase().trim();
-          let bobotAngka = parseFloat(String(item.bobot).replace("%", "")) || 0;
-
-          if (kat === "hard skill" && (itemJabatan === stafRole || itemJabatan === "semua jabatan" || itemJabatan === "semua departemen")) {
-            htmlHard += `<tr class="border-b border-gray-200 hover:bg-gray-50 avoid-break"><td class="p-2 border-r text-center font-bold text-gray-500">${idxHard++}</td><td class="p-2 border-r font-bold">${item.kpi || "-"}</td><td class="p-2 border-r">${item.indikator || "-"}</td><td class="p-2 border-r">${item.indicator_tools || "-"}</td><td class="p-2 border-r text-center">${item.satuan || "-"}</td><td class="p-2 border-r text-center font-bold">${item.target || "100%"}</td><td class="p-2 border-r text-center text-teal-600 font-bold kpi-hard-bobot" data-bobot="${bobotAngka}">${bobotAngka}%</td><td class="p-2 border-r text-center">${renderSelect()}</td><td class="p-2">${renderInput("Capaian")}</td></tr>`;
-          } else if (kat === "soft skill") {
-            htmlSoft += `<tr class="border-b border-gray-200 hover:bg-gray-50 avoid-break"><td class="p-2 border-r text-center font-bold text-gray-500">${idxSoft++}</td><td class="p-2 border-r font-bold">${item.kpi || "-"}</td><td class="p-2 border-r">${item.indikator || "-"}</td><td class="p-2 border-r text-center font-bold">${item.target || "Standar"}</td><td class="p-2 border-r text-center text-teal-600 font-bold kpi-soft-bobot" data-bobot="${bobotAngka}">${bobotAngka}%</td><td class="p-2 border-r text-center">${renderSelect()}</td><td class="p-2">${renderInput("Perilaku")}</td></tr>`;
-          }
-        });
-
-        document.getElementById("hardSkillTable").innerHTML = htmlHard || '<tr><td colspan="9" class="text-center py-4 text-gray-400">Tidak ada Indikator.</td></tr>';
-        document.getElementById("softSkillTable").innerHTML = htmlSoft || '<tr><td colspan="7" class="text-center py-4 text-gray-400">Tidak ada Indikator.</td></tr>';
-
-        currentDocumentStatus = "DRAFT"; document.getElementById("statusDokumen").innerText = `STATUS: DRAFT`; auditTrails = []; document.getElementById("auditLog").innerHTML = "";
-
-        const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=75x75&data=";
-        document.getElementById("qrStaff").src = qrUrl + encodeURIComponent(staf.nama);
-        refreshQRCodes(); simpanLog(`Dokumen dibuka / dimuat.`); kalkulasi(); applyLockState(); muatHasilTersimpan(stafEmail);
-      }
-
-      async function muatHasilTersimpan(stafEmail) {
-        try {
-          const j = await apiPost({action: "getHasil", periode: document.getElementById("periodeFilter").value});
-          const rec = ((j && j.data) || []).find(r => (r.emailStaf || "").toLowerCase() === stafEmail);
-          if (!rec) return; 
-
-          currentDocumentStatus = rec.status || "DRAFT";
-          document.getElementById("statusDokumen").innerText = `STATUS: ${currentDocumentStatus}`;
-          terapkanSkor("hardSkillTable", rec.detail.hard || []); terapkanSkor("softSkillTable", rec.detail.soft || []);
-          if(rec.audit) { auditTrails = rec.audit; document.getElementById("auditLog").innerHTML = auditTrails.join(""); }
-
-          refreshQRCodes(); kalkulasi(); applyLockState();
-        } catch (e) {}
-      }
-
-      function terapkanSkor(tableId, arr) {
-        const groups = document.querySelectorAll(`#${tableId} .skor-group`);
-        const notes = document.querySelectorAll(`#${tableId} input[type='text']`);
-        arr.forEach((it, i) => {
-          if (groups[i]) { groups[i].querySelector(".kpi-val-input").value = String(it.skor || 0); paintGroup(groups[i]); }
-          if (notes[i]) notes[i].value = it.catatan || "";
-        });
-      }
-
-      function setSkor(btn) {
-        const group = btn.closest(".skor-group"); if (!group) return;
-        const val = Number(btn.getAttribute("data-val")) || 0;
-        const input = group.querySelector(".kpi-val-input");
-        input.value = String(Number(input.value) === val ? 0 : val);
-        paintGroup(group); kalkulasi();
-      }
-
-      function paintGroup(group) {
-        const val = Number(group.querySelector(".kpi-val-input").value) || 0;
-        group.querySelectorAll(".skor-btn").forEach((b) => {
-          if (Number(b.getAttribute("data-val")) === val) { b.classList.add("bg-teal-600", "text-white", "border-teal-600"); b.classList.remove("bg-white", "text-slate-600"); } 
-          else { b.classList.remove("bg-teal-600", "text-white", "border-teal-600"); b.classList.add("bg-white", "text-slate-600"); }
-        });
-        group.querySelector(".skor-print").innerText = val === 0 ? "-" : String(val);
-      }
-
-      function ambilSkorSection(tableId, bobotClass) {
-        const sels = document.querySelectorAll(`#${tableId} .kpi-val-input`);
-        const notes = document.querySelectorAll(`#${tableId} input[type='text']`);
-        const bobots = document.querySelectorAll("." + bobotClass);
-        const arr = [];
-        sels.forEach((s, i) => arr.push({ skor: Number(s.value) || 0, catatan: notes[i] ? notes[i].value : "", bobot: bobots[i] ? Number(bobots[i].getAttribute("data-bobot")) || 0 : 0 }));
-        return arr;
-      }
-
-      function kalkulasi() {
-        // Logika tampilan lokal, backend akan menghitung ulang sbg bullet proof
-        const hInputs = document.querySelectorAll("#hardSkillTable .kpi-val-input");
-        const hBobots = document.querySelectorAll(".kpi-hard-bobot");
-        let sumHard = 0; hInputs.forEach((sel, i) => sumHard += (Number(sel.value) || 0) * ((Number(hBobots[i].getAttribute("data-bobot")) || 0) / 100));
-        let propHard = sumHard * 0.7;
-
-        const sInputs = document.querySelectorAll("#softSkillTable .kpi-val-input");
-        const sBobots = document.querySelectorAll(".kpi-soft-bobot");
-        let sumSoft = 0; sInputs.forEach((sel, i) => sumSoft += (Number(sel.value) || 0) * ((Number(sBobots[i].getAttribute("data-bobot")) || 0) / 100));
-        let propSoft = sumSoft * 0.3;
-
-        const totalScore = propHard + propSoft;
-        document.getElementById("skorAkhir").innerText = totalScore.toFixed(2);
-        
-        let grade = "Grade E", clr = "text-red-600";
-        if (totalScore >= 4.5) { grade = "Grade A"; clr = "text-emerald-600"; } 
-        else if (totalScore >= 3.5) { grade = "Grade B"; clr = "text-teal-600"; } 
-        else if (totalScore >= 2.5) { grade = "Grade C"; clr = "text-amber-600"; } 
-        else if (totalScore >= 1.5) { grade = "Grade D"; clr = "text-orange-600"; }
-
-        lastCalc = { sumHard, propHard, sumSoft, propSoft, total: totalScore, grade };
-        document.getElementById("lblGrade").innerText = `Grade Hasil: ${grade}`;
-        document.getElementById("lblGrade").className = `text-[10px] font-bold mt-1 uppercase ${clr}`;
-
-        let tH = 0; hBobots.forEach(b => tH += Number(b.getAttribute("data-bobot")) || 0);
-        let tS = 0; sBobots.forEach(b => tS += Number(b.getAttribute("data-bobot")) || 0);
-        bobotState = { ok: (hBobots.length === 0 || Math.abs(tH - 100) <= 0.1) && (sBobots.length === 0 || Math.abs(tS - 100) <= 0.1) };
-        
-        document.getElementById("totalBobotHard").innerText = hBobots.length ? tH+"%" : "-";
-        document.getElementById("totalBobotSoft").innerText = sBobots.length ? tS+"%" : "-";
-      }
-
-      function refreshQRCodes() {
-        const stat = currentDocumentStatus;
-        const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=75x75&data=";
-        
-        // QR Atasan
-        if (stat.includes("PENILAIAN_SELESAI") || stat.includes("TERVERIFIKASI") || stat.includes("DISAHKAN")) {
-            const el = document.getElementById("qrAtasan");
-            el.src = qrUrl + encodeURIComponent(chainAtasan ? chainAtasan.nama : "...");
-            el.classList.remove("opacity-0");
+        // VALIDASI LEMBAR PENILAIAN
+        function checkPeriodeValidation() {
+            const thn = document.getElementById('pilihTahun').value;
+            const sem = document.getElementById('pilihSemester').value;
+            const workspace = document.getElementById('kpiWorkspace');
+            
+            if (thn !== "" && sem !== "") {
+                workspace.classList.remove('hidden'); 
+                // Disini panggil fungsi get KPI data per karyawan: google.script.run...
+                document.getElementById('infoNama').innerText = "M. Imam Muslim"; // Contoh dinamis
+                document.getElementById('infoJabatan').innerText = "General Affair Staff";
+            } else {
+                workspace.classList.add('hidden');
+            }
         }
-        // QR Verifikator 1
-        if (stat.includes("TERVERIFIKASI_ATASAN") || stat.includes("TERVERIFIKASI_HR") || stat.includes("DISAHKAN")) {
-            const el = document.getElementById("qrVerif1");
-            el.src = qrUrl + encodeURIComponent(chainVerif1 ? chainVerif1.nama : "...");
-            el.classList.remove("opacity-0");
+
+        // FUNGSI RENDER TABEL MONITORING & AKSI ADMIN ARSIP
+        function renderRekap() {
+            const fTahun = document.getElementById('filterTahunMonitoring').value;
+            const fSem = document.getElementById('filterSemesterMonitoring').value;
+            const tbody = document.getElementById('tbodyMonitoring');
+            tbody.innerHTML = '';
+
+            rawMonitoringData.forEach(k => {
+                // Filter Logika Tahun & Semester
+                if (fTahun && k.Tahun !== fTahun) return;
+                if (fSem && k.Semester !== fSem) return;
+
+                // RBAC Admin Arsip: HANYA lihat yang sudah DISAHKAN_DIREKSI
+                if (currentUser.role === "Admin Arsip" && k.Status_Dokumen !== "DISAHKAN_DIREKSI") {
+                    return; 
+                }
+
+                const tr = document.createElement('tr');
+                
+                let btnAksi = `<button onclick="alert('Membuka detail KPI ${k.Nama}')" class="bg-gray-800 text-white px-3 py-1 rounded text-xs">Lihat</button>`;
+                
+                // TOMBOL UNDUH PDF FINAL (Khusus dokumen sah)
+                if (k.Status_Dokumen === "DISAHKAN_DIREKSI") {
+                    btnAksi += `<button onclick="cetakArsipPDF('${k.Tahun}', '${k.Semester}', '${k.Nama}')" class="ml-2 bg-emerald-600 text-white px-3 py-1 rounded text-xs font-bold">Unduh PDF</button>`;
+                }
+
+                tr.innerHTML = `
+                    <td class="p-3 border font-semibold">${k.Nama}</td>
+                    <td class="p-3 border">${k.Departemen}</td>
+                    <td class="p-3 border text-center font-bold text-[#00A693]">${k.Total_Skor}</td>
+                    <td class="p-3 border text-center"><span class="px-2 py-1 text-[10px] uppercase font-bold rounded bg-gray-100 text-gray-700">${k.Status_Dokumen}</span></td>
+                    <td class="p-3 border text-center whitespace-nowrap">${btnAksi}</td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
-        // QR Verifikator 2
-        if (stat.includes("TERVERIFIKASI_HR") || stat.includes("DISAHKAN")) {
-            const el = document.getElementById("qrVerif2");
-            el.src = qrUrl + encodeURIComponent(chainVerif2 ? chainVerif2.nama : "...");
-            el.classList.remove("opacity-0");
+
+        // FUNGSI CETAK PDF DENGAN NAMA OTOMATIS
+        function cetakArsipPDF(tahun, semester, nama) {
+            // Ubah Title Document secara dinamis agar default name "Save to PDF" mengikuti format yang rapi
+            const originalTitle = document.title;
+            // Format wajib: YYYY-SEM-NAMA
+            let formattedSem = semester === "Semester 1" ? "I" : "II";
+            document.title = `${tahun}-${formattedSem}-${nama}`; 
+            
+            // Simulasikan buka dokumen di Lembar Penilaian, lalu Print
+            switchMenu('penilaian'); 
+            
+            setTimeout(() => {
+                window.print();
+                // Kembalikan nama dokumen setelah print dialog muncul
+                document.title = originalTitle; 
+            }, 500);
         }
-        // QR Direksi
-        if (stat.includes("DISAHKAN")) {
-            const el = document.getElementById("qrDireksi");
-            el.src = qrUrl + encodeURIComponent(chainSahkan ? chainSahkan.nama : "...");
-            el.classList.remove("opacity-0");
+
+        // FUNGSI RENDER GRAFIK DASHBOARD (CHART.JS)
+        function loadDashboardData() {
+            // Panggil google.script.run untuk ambil data agregat dari Backend
+            // Contoh implementasi di sini menggunakan rawDashboardData dari inisialisasiDataDummy()
+            
+            if(rawDashboardData.departemen.length > 0) {
+                renderDeptChart(rawDashboardData.departemen);
+            }
+            if(rawDashboardData.individual.length > 0) {
+                populateKaryawanDropdown(rawDashboardData.individual);
+            }
         }
-    }
 
-      function simpanLog(pesan) {
-        auditTrails.unshift(`<div class="border-b border-gray-100 pb-1.5"><span class="text-gray-400">${getTimestamp()}</span> <span class="font-bold text-teal-700">${currentUser.nama} (${currentUser.jabatan}):</span> ${pesan}</div>`);
-        document.getElementById("auditLog").innerHTML = auditTrails.join("");
-      }
+        function renderDeptChart(deptData) {
+            const ctx = document.getElementById('chartDepartemen').getContext('2d');
+            
+            let labels = deptData.map(d => d.departemen);
+            let dataPoints = deptData.map(d => parseFloat(d.rataRata));
+            
+            // Dinamika Warna: Tertinggi Hijau Tua, Terendah (Di bawah 3.0) Merah/Warning
+            let colors = dataPoints.map((val, index) => {
+                if (index === 0) return '#007A6C'; 
+                if (index === dataPoints.length - 1 && val < 3.0) return '#E11D48'; 
+                return '#00A693'; 
+            });
 
-      // VALIDASI NOL SISI KLIEN SEBELUM SUBMIT (Bullet Proof Frontend)
-      function cekAdaNilaiKosong() {
-        const inputs = document.querySelectorAll(".kpi-val-input");
-        for(let i=0; i<inputs.length; i++) { if(Number(inputs[i].value) === 0) return true; }
-        return false;
-      }
+            if (deptChartInstance) deptChartInstance.destroy();
 
-      function susunPayload(statusVal) {
-        return {
-          action: "simpanPenilaian", periode: document.getElementById("periodeFilter").value,
-          emailStaf: currentStaf.email, namaStaf: currentStaf.nama, departemen: currentStaf.departemen, jabatan: currentStaf.jabatan,
-          emailPenilai: currentUser.email, namaPenilai: currentUser.nama, status: statusVal,
-          nilaiHard: lastCalc.propHard, nilaiSoft: lastCalc.propSoft, nilaiAkhir: lastCalc.total, grade: lastCalc.grade,
-          detail: { hard: ambilSkorSection("hardSkillTable", "kpi-hard-bobot"), soft: ambilSkorSection("softSkillTable", "kpi-soft-bobot") },
-          audit: auditTrails
-        };
-      }
-
-      async function simpanData() {
-        if (!bobotState.ok) return alert("Bobot tidak 100%. Hubungi Admin.");
-        simpanLog("Menyimpan draft. " + (document.getElementById("alasanLog").value ? `Catatan: ${document.getElementById("alasanLog").value}` : ""));
-        const payload = susunPayload(currentDocumentStatus || "DRAFT");
-        const j = await apiPost(payload);
-        if(j.ok) alert("Draft tersimpan."); else alert("Gagal: " + j.error);
-      }
-
-      async function updateStatus(statusBaru) {
-        if (!bobotState.ok) return alert("Bobot indikator belum 100%.");
-        if (cekAdaNilaiKosong()) return alert("GAGAL PENGAJUAN: Masih ada penilaian indikator yang kosong (skor 0). Wajib diisi semua.");
-        
-        simpanLog(`Mengubah status dokumen menjadi: <strong>${statusBaru}</strong>. Catatan: ${document.getElementById("alasanLog").value}`);
-        currentDocumentStatus = statusBaru; document.getElementById("statusDokumen").innerText = `STATUS: ${statusBaru}`;
-        refreshQRCodes(); applyLockState();
-        
-        const j = await apiPost(susunPayload(statusBaru));
-        if(j.ok) alert(`Dokumen berhasil diajukan! (Sistem telah menghitung ulang total akhir: ${j.recalculatedTotal})`); 
-        else alert("Gagal Simpan Status: " + j.error);
-        document.getElementById("alasanLog").value = "";
-      }
-
-      // KEMBALIKAN (REVISI BERJENJANG)
-      async function kembalikanDokumen() {
-        const alasan = document.getElementById("alasanLog").value.replace(/[<>]/g, "").trim();
-        if(!alasan) return alert("WAJIB menuliskan alasan pengembalian di kolom catatan sebelum menekan tombol ini.");
-        
-        const acc = getAccessLevel(currentUser);
-        let statKembali = "DIKEMBALIKAN_OLEH_ATASAN";
-        if(acc === "MANAGER" || acc === "LAB_CLN_MANAGER") statKembali = "DIKEMBALIKAN_OLEH_MANAGER";
-        else if(acc === "SUPER_ADMIN" && currentUser.jabatan.toLowerCase().includes("hrga")) statKembali = "DIKEMBALIKAN_OLEH_HR";
-        else if(acc === "SUPER_ADMIN") statKembali = "DIKEMBALIKAN_OLEH_DIREKSI";
-
-        simpanLog(`Mengembalikan dokumen (Revisi). Catatan: <strong>${alasan}</strong>`);
-        currentDocumentStatus = statKembali; document.getElementById("statusDokumen").innerText = `STATUS: ${statKembali}`;
-        refreshQRCodes(); applyLockState();
-        
-        const j = await apiPost(susunPayload(statKembali));
-        if(j.ok) alert("Dokumen berhasil dikembalikan ke staf/penilai.");
-        document.getElementById("alasanLog").value = "";
-      }
-
-      function applyLockState() {
-        const locked = (currentDocumentStatus || "").toUpperCase().includes("DISAHKAN");
-        const btnBuka = document.getElementById("btnBukaKunci");
-        if (locked) {
-          document.querySelectorAll(".skor-btn, input[type='text']").forEach(e => e.setAttribute("disabled", "disabled"));
-          ["btnSimpan", "btnAjukan", "btnVerifikasi1", "btnVerifikasi2", "btnSahkan", "btnKembalikan"].forEach(id => document.getElementById(id).classList.add("hidden"));
-          document.getElementById("lockAlert").classList.remove("hidden");
-          if (getAccessLevel(currentUser) === "SUPER_ADMIN") btnBuka.classList.remove("hidden");
-        } else {
-          document.getElementById("lockAlert").classList.add("hidden"); if(btnBuka) btnBuka.classList.add("hidden");
+            deptChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Rata-Rata Skor Departemen',
+                        data: dataPoints,
+                        backgroundColor: colors,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    indexAxis: 'y', // Bar Horizontal
+                    responsive: true,
+                    scales: { 
+                        x: { min: 0, max: 5 } 
+                    }
+                }
+            });
         }
-      }
 
-      async function bukaKunci() {
-        if(!document.getElementById("alasanLog").value) return alert("Isi ALASAN sebelum membuka kunci.");
-        if (prompt("Ketik 'REVISI' untuk buka dokumen tersahkan:") !== "REVISI") return;
-        await updateStatus("DIBUKA_REVISI"); renderKPI();
-      }
+        function populateKaryawanDropdown(indvData) {
+            const select = document.getElementById('filterKaryawanDashboard');
+            // Cegah duplikasi pengisian
+            if(select.options.length > 1) return; 
 
-      // MODULE: Ganti Password
-      let pwForced = false;
-      function openGantiPassword(force) { pwForced = !!force; document.getElementById("pwModalHint").innerText = force ? "Wajib ganti password." : "Perbarui sandi."; document.getElementById("pwBtnBatal").style.display = force ? "none" : ""; document.getElementById("pwModal").classList.remove("hidden"); }
-      function closeGantiPassword() { if (!pwForced) document.getElementById("pwModal").classList.add("hidden"); }
-      async function submitGantiPassword() {
-        const lama = document.getElementById("pwLama").value, baru = document.getElementById("pwBaru").value, konf = document.getElementById("pwKonfirmasi").value;
-        const msg = document.getElementById("pwMsg"); msg.className = "text-xs text-red-600";
-        if (!lama || !baru || !konf) return msg.innerText = "Isi semua kolom.";
-        if (baru.length < 6 || baru !== konf) return msg.innerText = "Password min. 6 karakter & cocok.";
-        document.getElementById("pwBtnSimpan").innerText = "Menyimpan...";
-        const j = await apiPost({ action: "gantiPassword", passwordLama: lama, passwordBaru: baru });
-        if (j.ok) { msg.className = "text-xs text-teal-700"; msg.innerText = "Berhasil."; setTimeout(() => document.getElementById("pwModal").classList.add("hidden"), 900); } 
-        else msg.innerText = j.error;
-        document.getElementById("pwBtnSimpan").innerText = "Simpan";
-      }
-
-      // MODULE: Rekap & Download Massal
-      async function renderRekap() {
-        const j = await apiPost({action: "getHasil", periode: document.getElementById("periodeFilter").value});
-        const hasil = (j && j.data) || [];
-        const html = hasil.map(r => {
-          const hard = Number(r.nilaiHard).toFixed(2), soft = Number(r.nilaiSoft).toFixed(2), tot = Number(r.nilaiAkhir).toFixed(2);
-          return `<tr class="hover:bg-gray-50"><td class="p-3 border font-bold text-slate-700">${r.namaStaf}</td><td class="p-3 border text-xs text-gray-500">${r.jabatan}</td><td class="p-3 border text-xs text-teal-700 font-bold">${r.namaPenilai}</td><td class="p-3 border text-center font-black text-[#00A693]">${tot}</td><td class="p-3 border text-center"><span class="bg-teal-100 text-teal-700 text-[10px] px-2 py-1 rounded-full font-bold uppercase">${r.status}</span></td><td class="p-3 border text-center no-print">
-            <button onclick="lihatDetail('${r.emailStaf}')" class="text-[10px] bg-slate-800 text-white px-2 py-1 rounded font-bold">Lihat</button>
-          </td></tr>`;
-        }).join("");
-        document.getElementById("rekapTableBody").innerHTML = html || '<tr><td colspan="6" class="text-center py-4 text-gray-400">Belum ada data untuk periode ini di cakupan Anda.</td></tr>';
-      }
-
-      function lihatDetail(email) {
-        document.getElementById("stafSelector").value = (MOCK_KARYAWAN.find(k=>k.email.toLowerCase()===email.toLowerCase())||{}).nik;
-        switchMenu("penilaian"); loadData();
-      }
-
-      function downloadCSV() {
-        const rows = document.querySelectorAll("#tableRekapData tr");
-        let csv = [];
-        for (let i = 0; i < rows.length; i++) {
-          let row = [], cols = rows[i].querySelectorAll("td, th");
-          for (let j = 0; j < cols.length - 1; j++) row.push('"' + cols[j].innerText.replace(/"/g, '""') + '"'); // Abaikan kolom aksi
-          csv.push(row.join(","));
+            let uniqueNames = [...new Set(indvData.map(item => item.nama))];
+            uniqueNames.forEach(nama => {
+                select.innerHTML += `<option value="${nama}">${nama}</option>`;
+            });
         }
-        const blob = new Blob([csv.join("\n")], { type: "text/csv" });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a"); a.href = url; a.download = "Rekap_KPI_" + document.getElementById("periodeFilter").value + ".csv"; a.click();
-      }
+
+        function renderIndividualChart() {
+            const selectedNama = document.getElementById('filterKaryawanDashboard').value;
+            if (!selectedNama || !rawDashboardData) return;
+
+            const ctx = document.getElementById('chartIndividu').getContext('2d');
+            
+            // Filter data spesifik karyawan terpilih
+            let personalData = rawDashboardData.individual.filter(d => d.nama === selectedNama);
+            
+            let labels = personalData.map(d => d.periode);
+            let dataPoints = personalData.map(d => d.skor);
+
+            if (indvChartInstance) indvChartInstance.destroy();
+
+            indvChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Skor Kinerja Akhir',
+                        data: dataPoints,
+                        borderColor: '#00A693',
+                        backgroundColor: '#00A693',
+                        tension: 0.3,
+                        fill: false,
+                        pointRadius: 6,
+                        // Warna titik dinamis (Skor > 3.5 Hijau, sebaliknya Oranye/Kuning)
+                        pointBackgroundColor: dataPoints.map(v => v >= 3.5 ? '#10B981' : '#F59E0B') 
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: { 
+                        y: { min: 0, max: 5 } 
+                    }
+                }
+            });
+        }
+
+        // DATA DUMMY (HANYA UNTUK TESTING FRONT-END)
+        function inisialisasiDataDummy() {
+            rawMonitoringData = [
+                { id: "001", Nama: "M. Imam Muslim", Departemen: "General Affair", Tahun: "2026", Semester: "Semester 1", Total_Skor: "2.97", Status_Dokumen: "DISAHKAN_DIREKSI" },
+                { id: "002", Nama: "Tri Miranda Prasasti", Departemen: "Laboratorium", Tahun: "2026", Semester: "Semester 1", Total_Skor: "3.29", Status_Dokumen: "DISAHKAN_DIREKSI" },
+                { id: "003", Nama: "Nilam Yuniari", Departemen: "Customer Service", Tahun: "2026", Semester: "Semester 1", Total_Skor: "3.09", Status_Dokumen: "TERVERIFIKASI_HR" }
+            ];
+
+            rawDashboardData.departemen = [
+                { departemen: "Laboratorium", rataRata: 4.10 },
+                { departemen: "Customer Service", rataRata: 3.50 },
+                { departemen: "General Affair", rataRata: 2.97 },
+                { departemen: "Finance", rataRata: 2.10 } // Terendah
+            ];
+
+            rawDashboardData.individual = [
+                { nama: "M. Imam Muslim", periode: "2025 - Sem 2", skor: 3.20 },
+                { nama: "M. Imam Muslim", periode: "2026 - Sem 1", skor: 2.97 },
+                { nama: "Tri Miranda Prasasti", periode: "2025 - Sem 2", skor: 4.00 },
+                { nama: "Tri Miranda Prasasti", periode: "2026 - Sem 1", skor: 3.29 }
+            ];
+        }
+
+        function logoutSistem() {
+            if(confirm("Apakah Anda yakin ingin keluar?")) {
+                window.location.reload();
+            }
+        }
     </script>
-  </body>
+</body>
 </html>
