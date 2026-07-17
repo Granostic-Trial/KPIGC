@@ -648,15 +648,24 @@
 
       function refreshQRCodes() {
         const stat = currentDocumentStatus;
-        ["qrAtasan", "qrVerif1", "qrVerif2", "qrDireksi"].forEach(id => document.getElementById(id).classList.add("opacity-0"));
-        if (stat === "DRAFT") return;
-        
-        // Asumsi tanda tangan tersemat sesuai progres
-        if (stat.includes("SELESAI") || stat.includes("VERIFIKASI") || stat.includes("DISAHKAN")) document.getElementById("qrAtasan").classList.remove("opacity-0");
-        if (stat.includes("VERIFIKASI") || stat.includes("DISAHKAN")) document.getElementById("qrVerif1").classList.remove("opacity-0");
-        if (stat.includes("TERVERIFIKASI_HR") || stat.includes("DISAHKAN")) document.getElementById("qrVerif2").classList.remove("opacity-0");
-        if (stat.includes("DISAHKAN")) document.getElementById("qrDireksi").classList.remove("opacity-0");
-      }
+        const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=75x75&data=";
+        const rules = [
+          { id: "qrAtasan", minStatus: "PENILAIAN_SELESAI", nama: chainAtasan ? chainAtasan.nama : "..." },
+          { id: "qrVerif1", minStatus: "TERVERIFIKASI_ATASAN", nama: chainVerif1 ? chainVerif1.nama : "..." },
+          { id: "qrVerif2", minStatus: "TERVERIFIKASI_HR", nama: chainVerif2 ? chainVerif2.nama : "..." },
+          { id: "qrDireksi", minStatus: "DISAHKAN_DIREKSI", nama: chainSahkan ? chainSahkan.nama : "..." }
+        ];
+
+        rules.forEach(rule => {
+          const el = document.getElementById(rule.id);
+          if (stat.indexOf(rule.minStatus) > -1 || stat === "DISAHKAN_DIREKSI") {
+            el.src = qrUrl + encodeURIComponent(rule.nama);
+            el.classList.remove("opacity-0");
+          } else {
+            el.classList.add("opacity-0");
+          }
+        });
+    }
 
       function simpanLog(pesan) {
         auditTrails.unshift(`<div class="border-b border-gray-100 pb-1.5"><span class="text-gray-400">${getTimestamp()}</span> <span class="font-bold text-teal-700">${currentUser.nama} (${currentUser.jabatan}):</span> ${pesan}</div>`);
