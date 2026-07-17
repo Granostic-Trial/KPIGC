@@ -45,6 +45,7 @@
             <button onclick="switchMenu('dashboard')" id="btn-dashboard" class="nav-btn w-full text-left p-3 rounded-lg text-sm transition hidden">📈 Dashboard Global KPI</button>
         </div>
 
+        <!-- Tombol Logout yang Pasti Berfungsi -->
         <button onclick="logoutSistem()" type="button" class="mt-auto bg-red-600/20 text-red-400 p-2 rounded-lg text-sm font-bold hover:bg-red-600/40 transition">Keluar Akun</button>
     </div>
 
@@ -63,7 +64,7 @@
         <!-- ============================================== -->
         <div id="sec-penilaian" class="space-y-4 max-w-7xl mx-auto print:block block">
             
-            <!-- Kontrol Pemilihan Periode (Sembunyi saat Print) -->
+            <!-- Kontrol Pemilihan Periode -->
             <div class="print:hidden bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div class="flex gap-2 w-full md:w-auto">
                     <select id="pilihTahun" class="border border-gray-300 p-2 rounded-lg text-sm focus:outline-none focus:border-[#00A693]">
@@ -77,13 +78,11 @@
                         <option value="Semester 2">Semester 2</option>
                     </select>
                 </div>
-                <!-- Tombol Cetak Arsip PDF hanya untuk mode cetak manual dari Lembar Penilaian -->
                 <button onclick="window.print()" class="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-gray-700 w-full md:w-auto">🖨️ Cetak PDF</button>
             </div>
 
-            <!-- Workspace Lembar Penilaian (Disembunyikan sebelum periode dipilih) -->
+            <!-- Workspace Lembar Penilaian (Sembunyi sebelum periode dipilih) -->
             <div id="kpiWorkspace" class="hidden space-y-4">
-                <!-- Header Info Karyawan -->
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
                     <div>
                         <p class="text-xs text-gray-500 font-bold uppercase mb-2">Lembar Evaluasi KPI</p>
@@ -98,7 +97,6 @@
                     </div>
                 </div>
 
-                <!-- Tabel Indikator KPI (Dinamis via Google Script) -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <table class="w-full text-left text-sm border-collapse" id="tableIndikator">
                         <thead class="bg-[#00A693] text-white">
@@ -111,7 +109,9 @@
                             </tr>
                         </thead>
                         <tbody id="tbodyIndikator" class="text-gray-700">
-                            <!-- Baris di-generate via JS -->
+                            <tr>
+                                <td class="p-3 border text-center" colspan="5">Pilih Karyawan pada Data Monitoring (Contoh Tampilan)</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -119,7 +119,7 @@
         </div>
 
         <!-- ============================================== -->
-        <!-- MENU 2: MONITORING PENILAIAN (ANTREAN / ARSIP) -->
+        <!-- MENU 2: MONITORING PENILAIAN -->
         <!-- ============================================== -->
         <div id="sec-monitoring" class="hidden space-y-6 max-w-7xl mx-auto print:hidden">
             <h2 class="text-xl font-black text-gray-800 uppercase mb-2">Monitoring Penilaian Karyawan</h2>
@@ -151,20 +151,20 @@
                         </tr>
                     </thead>
                     <tbody id="tbodyMonitoring" class="text-gray-700">
-                        <!-- Data di-render di sini -->
+                        <!-- Data di-render via JavaScript -->
                     </tbody>
                 </table>
             </div>
         </div>
 
         <!-- ============================================== -->
-        <!-- MENU 3: DASHBOARD GLOBAL KPI (GRAFIK) -->
+        <!-- MENU 3: DASHBOARD GLOBAL KPI -->
         <!-- ============================================== -->
         <div id="sec-dashboard" class="hidden space-y-6 max-w-7xl mx-auto print:hidden">
             <h2 class="text-xl font-black text-gray-800 uppercase mb-4">Dashboard Global KPI</h2>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Grafik Performa Departemen (Global) -->
+                <!-- Grafik Performa Departemen -->
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <h3 class="font-bold text-gray-700 mb-4">Performa Rata-Rata Departemen</h3>
                     <canvas id="chartDepartemen"></canvas>
@@ -187,16 +187,15 @@
     <!-- JAVASCRIPT LOGIC - BULLET PROOF -->
     <!-- ========================================== -->
     <script>
-        // Simulasi Data User Session (Akan diganti dari backend via google.script.run)
         let currentUser = {
             nama: "Deiky Catur Hadi, S.Pd.",
-            role: "HRGA Manager", // Bisa diganti 'Admin Arsip', 'Direksi', 'Manager', dll
+            role: "HRGA Manager", // Ganti 'Admin Arsip' untuk tes tombol PDF
             departemen: "HRGA",
             email: "hrga@granostic.com"
         };
 
-        let rawMonitoringData = []; // Data tabel (Mock Data untuk simulasi front-end)
-        let rawDashboardData = { individual: [], departemen: [] }; // Data grafik
+        let rawMonitoringData = []; 
+        let rawDashboardData = { individual: [], departemen: [] };
         let deptChartInstance = null;
         let indvChartInstance = null;
 
@@ -205,42 +204,44 @@
             document.getElementById('sidebarUserName').innerText = currentUser.nama;
             document.getElementById('sidebarUserRole').innerText = currentUser.role;
 
-            // Atur Visibilitas Menu Berdasarkan Role
             aturHakAksesMenu();
 
-            // Setup Event Listener Validasi Lembar Penilaian
+            // Validasi Periode Listener
             document.getElementById('pilihTahun').addEventListener('change', checkPeriodeValidation);
             document.getElementById('pilihSemester').addEventListener('change', checkPeriodeValidation);
 
-            // Init Data Dummy untuk tampilan awal (Harus diganti dengan google.script.run)
+            // Data Dummy (Untuk testing front-end)
             inisialisasiDataDummy();
         });
 
+        // FUNGSI LOGOUT (PASTI BERFUNGSI)
+        function logoutSistem() {
+            if(confirm("Apakah Anda yakin ingin keluar dari sistem KPI?")) {
+                // Di Google Apps Script, me-reload halaman akan mereset state sementara
+                window.location.reload();
+            }
+        }
+
         // FUNGSI NAVIGASI MENU
         function switchMenu(menuId) {
-            // Sembunyikan semua section
             document.getElementById('sec-penilaian').classList.add('hidden');
             document.getElementById('sec-monitoring').classList.add('hidden');
             document.getElementById('sec-dashboard').classList.add('hidden');
 
-            // Reset tombol nav
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
 
-            // Tampilkan yang dipilih
             document.getElementById(`sec-${menuId}`).classList.remove('hidden');
             document.getElementById(`btn-${menuId}`).classList.add('active');
 
-            // Trigger Load Data Khusus
             if(menuId === 'monitoring') renderRekap();
             if(menuId === 'dashboard') loadDashboardData();
         }
 
-        // HAK AKSES MENU (RBAC)
+        // HAK AKSES
         function aturHakAksesMenu() {
             const role = currentUser.role;
             const btnDash = document.getElementById('btn-dashboard');
             
-            // Dashboard Global hanya untuk yang punya bawahan atau direksi
             if (role === 'Superadmin' || role === 'Direksi' || role === 'HRGA Manager' || role === 'Manager' || role === 'Supervisor') {
                 btnDash.classList.remove('hidden');
             }
@@ -254,15 +255,14 @@
             
             if (thn !== "" && sem !== "") {
                 workspace.classList.remove('hidden'); 
-                // Disini panggil fungsi get KPI data per karyawan: google.script.run...
-                document.getElementById('infoNama').innerText = "M. Imam Muslim"; // Contoh dinamis
-                document.getElementById('infoJabatan').innerText = "General Affair Staff";
+                document.getElementById('infoNama').innerText = "Data Terpilih";
+                document.getElementById('infoJabatan').innerText = "-";
             } else {
                 workspace.classList.add('hidden');
             }
         }
 
-        // FUNGSI RENDER TABEL MONITORING & AKSI ADMIN ARSIP
+        // RENDER TABEL MONITORING (Beserta Tombol PDF)
         function renderRekap() {
             const fTahun = document.getElementById('filterTahunMonitoring').value;
             const fSem = document.getElementById('filterSemesterMonitoring').value;
@@ -270,20 +270,13 @@
             tbody.innerHTML = '';
 
             rawMonitoringData.forEach(k => {
-                // Filter Logika Tahun & Semester
                 if (fTahun && k.Tahun !== fTahun) return;
                 if (fSem && k.Semester !== fSem) return;
-
-                // RBAC Admin Arsip: HANYA lihat yang sudah DISAHKAN_DIREKSI
-                if (currentUser.role === "Admin Arsip" && k.Status_Dokumen !== "DISAHKAN_DIREKSI") {
-                    return; 
-                }
+                if (currentUser.role === "Admin Arsip" && k.Status_Dokumen !== "DISAHKAN_DIREKSI") return; 
 
                 const tr = document.createElement('tr');
-                
                 let btnAksi = `<button onclick="alert('Membuka detail KPI ${k.Nama}')" class="bg-gray-800 text-white px-3 py-1 rounded text-xs">Lihat</button>`;
                 
-                // TOMBOL UNDUH PDF FINAL (Khusus dokumen sah)
                 if (k.Status_Dokumen === "DISAHKAN_DIREKSI") {
                     btnAksi += `<button onclick="cetakArsipPDF('${k.Tahun}', '${k.Semester}', '${k.Nama}')" class="ml-2 bg-emerald-600 text-white px-3 py-1 rounded text-xs font-bold">Unduh PDF</button>`;
                 }
@@ -299,44 +292,30 @@
             });
         }
 
-        // FUNGSI CETAK PDF DENGAN NAMA OTOMATIS
+        // CETAK PDF OTOMATIS
         function cetakArsipPDF(tahun, semester, nama) {
-            // Ubah Title Document secara dinamis agar default name "Save to PDF" mengikuti format yang rapi
             const originalTitle = document.title;
-            // Format wajib: YYYY-SEM-NAMA
             let formattedSem = semester === "Semester 1" ? "I" : "II";
             document.title = `${tahun}-${formattedSem}-${nama}`; 
             
-            // Simulasikan buka dokumen di Lembar Penilaian, lalu Print
             switchMenu('penilaian'); 
-            
             setTimeout(() => {
                 window.print();
-                // Kembalikan nama dokumen setelah print dialog muncul
                 document.title = originalTitle; 
             }, 500);
         }
 
-        // FUNGSI RENDER GRAFIK DASHBOARD (CHART.JS)
+        // RENDER GRAFIK
         function loadDashboardData() {
-            // Panggil google.script.run untuk ambil data agregat dari Backend
-            // Contoh implementasi di sini menggunakan rawDashboardData dari inisialisasiDataDummy()
-            
-            if(rawDashboardData.departemen.length > 0) {
-                renderDeptChart(rawDashboardData.departemen);
-            }
-            if(rawDashboardData.individual.length > 0) {
-                populateKaryawanDropdown(rawDashboardData.individual);
-            }
+            if(rawDashboardData.departemen.length > 0) renderDeptChart(rawDashboardData.departemen);
+            if(rawDashboardData.individual.length > 0) populateKaryawanDropdown(rawDashboardData.individual);
         }
 
         function renderDeptChart(deptData) {
             const ctx = document.getElementById('chartDepartemen').getContext('2d');
-            
             let labels = deptData.map(d => d.departemen);
             let dataPoints = deptData.map(d => parseFloat(d.rataRata));
             
-            // Dinamika Warna: Tertinggi Hijau Tua, Terendah (Di bawah 3.0) Merah/Warning
             let colors = dataPoints.map((val, index) => {
                 if (index === 0) return '#007A6C'; 
                 if (index === dataPoints.length - 1 && val < 3.0) return '#E11D48'; 
@@ -344,105 +323,68 @@
             });
 
             if (deptChartInstance) deptChartInstance.destroy();
-
             deptChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
-                    datasets: [{
-                        label: 'Rata-Rata Skor Departemen',
-                        data: dataPoints,
-                        backgroundColor: colors,
-                        borderRadius: 4,
-                    }]
+                    datasets: [{ label: 'Rata-Rata Skor', data: dataPoints, backgroundColor: colors, borderRadius: 4 }]
                 },
-                options: {
-                    indexAxis: 'y', // Bar Horizontal
-                    responsive: true,
-                    scales: { 
-                        x: { min: 0, max: 5 } 
-                    }
-                }
+                options: { indexAxis: 'y', responsive: true, scales: { x: { min: 0, max: 5 } } }
             });
         }
 
         function populateKaryawanDropdown(indvData) {
             const select = document.getElementById('filterKaryawanDashboard');
-            // Cegah duplikasi pengisian
             if(select.options.length > 1) return; 
-
             let uniqueNames = [...new Set(indvData.map(item => item.nama))];
-            uniqueNames.forEach(nama => {
-                select.innerHTML += `<option value="${nama}">${nama}</option>`;
-            });
+            uniqueNames.forEach(nama => { select.innerHTML += `<option value="${nama}">${nama}</option>`; });
         }
 
         function renderIndividualChart() {
             const selectedNama = document.getElementById('filterKaryawanDashboard').value;
             if (!selectedNama || !rawDashboardData) return;
-
             const ctx = document.getElementById('chartIndividu').getContext('2d');
-            
-            // Filter data spesifik karyawan terpilih
             let personalData = rawDashboardData.individual.filter(d => d.nama === selectedNama);
-            
             let labels = personalData.map(d => d.periode);
             let dataPoints = personalData.map(d => d.skor);
 
             if (indvChartInstance) indvChartInstance.destroy();
-
             indvChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Skor Kinerja Akhir',
+                        label: 'Skor Kinerja',
                         data: dataPoints,
                         borderColor: '#00A693',
                         backgroundColor: '#00A693',
-                        tension: 0.3,
-                        fill: false,
-                        pointRadius: 6,
-                        // Warna titik dinamis (Skor > 3.5 Hijau, sebaliknya Oranye/Kuning)
+                        tension: 0.3, fill: false, pointRadius: 6,
                         pointBackgroundColor: dataPoints.map(v => v >= 3.5 ? '#10B981' : '#F59E0B') 
                     }]
                 },
-                options: {
-                    responsive: true,
-                    scales: { 
-                        y: { min: 0, max: 5 } 
-                    }
-                }
+                options: { responsive: true, scales: { y: { min: 0, max: 5 } } }
             });
         }
 
-        // DATA DUMMY (HANYA UNTUK TESTING FRONT-END)
+        // DATA DUMMY (Akan diganti fungsi Google Script asli)
         function inisialisasiDataDummy() {
             rawMonitoringData = [
                 { id: "001", Nama: "M. Imam Muslim", Departemen: "General Affair", Tahun: "2026", Semester: "Semester 1", Total_Skor: "2.97", Status_Dokumen: "DISAHKAN_DIREKSI" },
                 { id: "002", Nama: "Tri Miranda Prasasti", Departemen: "Laboratorium", Tahun: "2026", Semester: "Semester 1", Total_Skor: "3.29", Status_Dokumen: "DISAHKAN_DIREKSI" },
                 { id: "003", Nama: "Nilam Yuniari", Departemen: "Customer Service", Tahun: "2026", Semester: "Semester 1", Total_Skor: "3.09", Status_Dokumen: "TERVERIFIKASI_HR" }
             ];
-
             rawDashboardData.departemen = [
                 { departemen: "Laboratorium", rataRata: 4.10 },
                 { departemen: "Customer Service", rataRata: 3.50 },
                 { departemen: "General Affair", rataRata: 2.97 },
-                { departemen: "Finance", rataRata: 2.10 } // Terendah
+                { departemen: "Finance", rataRata: 2.10 }
             ];
-
             rawDashboardData.individual = [
                 { nama: "M. Imam Muslim", periode: "2025 - Sem 2", skor: 3.20 },
                 { nama: "M. Imam Muslim", periode: "2026 - Sem 1", skor: 2.97 },
                 { nama: "Tri Miranda Prasasti", periode: "2025 - Sem 2", skor: 4.00 },
                 { nama: "Tri Miranda Prasasti", periode: "2026 - Sem 1", skor: 3.29 }
             ];
-        }
-
-        function logoutSistem() {
-            if(confirm("Apakah Anda yakin ingin keluar?")) {
-                window.location.reload();
-            }
         }
     </script>
 </body>
