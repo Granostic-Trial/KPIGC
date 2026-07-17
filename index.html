@@ -9,7 +9,6 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Gaya khusus untuk mode Cetak PDF */
         @media print {
             body { background: white !important; margin: 0; padding: 0; }
             .print\:hidden { display: none !important; }
@@ -20,7 +19,6 @@
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
         }
-        /* Style Global */
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8; }
         .nav-btn.active { background-color: #00A693; color: white; font-weight: bold; }
         .nav-btn:hover:not(.active) { background-color: rgba(0, 166, 147, 0.1); }
@@ -31,11 +29,10 @@
     <!-- SIDEBAR (Kiri) -->
     <div class="print:hidden w-full md:w-64 bg-slate-900 text-gray-300 flex flex-col p-4 shadow-lg z-10 flex-shrink-0 min-h-screen">
         <div class="border-b border-slate-700 pb-4 mb-4 text-center">
-            <!-- Logo Granostic -->
             <h1 class="text-white font-black tracking-wider text-xl mt-2">Gran<span class="text-[#00A693]">o</span>stic</h1>
             <div class="text-white font-bold tracking-wider text-sm mt-1">GRANOSTIC KPI</div>
-            <!-- Info User -->
-            <div id="sidebarUserName" class="text-sm text-[#00A693] font-bold mt-4">Memuat...</div>
+            <!-- Info User Dinamis -->
+            <div id="sidebarUserName" class="text-sm text-[#00A693] font-bold mt-4">Menghubungkan sesi...</div>
             <div id="sidebarUserRole" class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider"></div>
         </div>
 
@@ -45,7 +42,7 @@
             <button onclick="switchMenu('dashboard')" id="btn-dashboard" class="nav-btn w-full text-left p-3 rounded-lg text-sm transition hidden">📈 Dashboard Global KPI</button>
         </div>
 
-        <!-- Tombol Logout yang Pasti Berfungsi -->
+        <!-- Keluar Akun Terintegrasi Google Apps Script -->
         <button onclick="logoutSistem()" type="button" class="mt-auto bg-red-600/20 text-red-400 p-2 rounded-lg text-sm font-bold hover:bg-red-600/40 transition">Keluar Akun</button>
     </div>
 
@@ -59,12 +56,8 @@
             <p class="text-[10px] font-semibold text-black">Dokumen Resmi Penilaian Kinerja (KPI) Karyawan</p>
         </div>
 
-        <!-- ============================================== -->
         <!-- MENU 1: LEMBAR PENILAIAN -->
-        <!-- ============================================== -->
         <div id="sec-penilaian" class="space-y-4 max-w-7xl mx-auto print:block block">
-            
-            <!-- Kontrol Pemilihan Periode -->
             <div class="print:hidden bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div class="flex gap-2 w-full md:w-auto">
                     <select id="pilihTahun" class="border border-gray-300 p-2 rounded-lg text-sm focus:outline-none focus:border-[#00A693]">
@@ -81,7 +74,6 @@
                 <button onclick="window.print()" class="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-gray-700 w-full md:w-auto">🖨️ Cetak PDF</button>
             </div>
 
-            <!-- Workspace Lembar Penilaian (Sembunyi sebelum periode dipilih) -->
             <div id="kpiWorkspace" class="hidden space-y-4">
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
                     <div>
@@ -105,26 +97,21 @@
                                 <th class="p-3 border">KPI</th>
                                 <th class="p-3 border">Indikator Penilaian</th>
                                 <th class="p-3 border text-center">Bobot</th>
-                                <th class="p-3 border text-center">Skor (1-5)</th>
+                                class="p-3 border text-center">Skor (1-5)</th>
                             </tr>
                         </thead>
                         <tbody id="tbodyIndikator" class="text-gray-700">
-                            <tr>
-                                <td class="p-3 border text-center" colspan="5">Pilih Karyawan pada Data Monitoring (Contoh Tampilan)</td>
-                            </tr>
+                            <!-- Diisi via getKaryawanData -->
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- ============================================== -->
         <!-- MENU 2: MONITORING PENILAIAN -->
-        <!-- ============================================== -->
         <div id="sec-monitoring" class="hidden space-y-6 max-w-7xl mx-auto print:hidden">
             <h2 class="text-xl font-black text-gray-800 uppercase mb-2">Monitoring Penilaian Karyawan</h2>
             
-            <!-- FILTER MONITORING -->
             <div class="flex flex-col md:flex-row gap-4 mb-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
                 <select id="filterTahunMonitoring" class="border border-gray-300 p-2 rounded-md text-sm" onchange="renderRekap()">
                     <option value="">Semua Tahun</option>
@@ -138,7 +125,6 @@
                 </select>
             </div>
 
-            <!-- Tabel Data Monitoring -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
                 <table class="w-full text-left text-sm border-collapse">
                     <thead class="bg-slate-800 text-white">
@@ -151,26 +137,20 @@
                         </tr>
                     </thead>
                     <tbody id="tbodyMonitoring" class="text-gray-700">
-                        <!-- Data di-render via JavaScript -->
+                        <!-- Diisi via JavaScript -->
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <!-- ============================================== -->
         <!-- MENU 3: DASHBOARD GLOBAL KPI -->
-        <!-- ============================================== -->
         <div id="sec-dashboard" class="hidden space-y-6 max-w-7xl mx-auto print:hidden">
             <h2 class="text-xl font-black text-gray-800 uppercase mb-4">Dashboard Global KPI</h2>
-            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Grafik Performa Departemen -->
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <h3 class="font-bold text-gray-700 mb-4">Performa Rata-Rata Departemen</h3>
                     <canvas id="chartDepartemen"></canvas>
                 </div>
-                
-                <!-- Grafik Tren Individu -->
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <h3 class="font-bold text-gray-700 mb-4">Tren Performa Individu</h3>
                     <select id="filterKaryawanDashboard" class="w-full border border-gray-300 p-2 rounded-md mb-4 text-sm" onchange="renderIndividualChart()">
@@ -184,50 +164,63 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- JAVASCRIPT LOGIC - BULLET PROOF -->
+    <!-- JAVASCRIPT LOGIC - SINKRON DENGAN USER ASLI -->
     <!-- ========================================== -->
     <script>
-        let currentUser = {
-            nama: "Deiky Catur Hadi, S.Pd.",
-            role: "HRGA Manager", // Ganti 'Admin Arsip' untuk tes tombol PDF
-            departemen: "HRGA",
-            email: "hrga@granostic.com"
-        };
-
+        let currentUser = {}; // Kosongkan awal, akan diisi dinamis dari Apps Script
         let rawMonitoringData = []; 
         let rawDashboardData = { individual: [], departemen: [] };
         let deptChartInstance = null;
         let indvChartInstance = null;
 
-        // Saat halaman dimuat
         document.addEventListener("DOMContentLoaded", () => {
+            // PANGGIL USER ASLI DARI BACKEND DARI DATA AKSES LOGIN GOOGLE
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run.withSuccessHandler(initUserSession).getUserProfile(); 
+            } else {
+                // Fallback lokal jika dijalankan di luar GAS (untuk tes)
+                initUserSession({ nama: "Guest User", role: "Staf", departemen: "Umum", email: "" });
+            }
+
+            document.getElementById('pilihTahun').addEventListener('change', checkPeriodeValidation);
+            document.getElementById('pilihSemester').addEventListener('change', checkPeriodeValidation);
+        });
+
+        function initUserSession(userProfile) {
+            currentUser = userProfile;
             document.getElementById('sidebarUserName').innerText = currentUser.nama;
             document.getElementById('sidebarUserRole').innerText = currentUser.role;
 
             aturHakAksesMenu();
+            loadMasterData(); 
+        }
 
-            // Validasi Periode Listener
-            document.getElementById('pilihTahun').addEventListener('change', checkPeriodeValidation);
-            document.getElementById('pilihSemester').addEventListener('change', checkPeriodeValidation);
-
-            // Data Dummy (Untuk testing front-end)
-            inisialisasiDataDummy();
-        });
-
-        // FUNGSI LOGOUT (PASTI BERFUNGSI)
         function logoutSistem() {
             if(confirm("Apakah Anda yakin ingin keluar dari sistem KPI?")) {
-                // Di Google Apps Script, me-reload halaman akan mereset state sementara
-                window.location.reload();
+                if (typeof google !== 'undefined' && google.script && google.script.run) {
+                    // Redirect kembali ke tautan web app utama untuk mereset sesi login Google
+                    google.script.run.withSuccessHandler(function(url){
+                        window.open(url, '_top');
+                    }).getScriptUrl();
+                } else {
+                    window.location.reload();
+                }
             }
         }
 
-        // FUNGSI NAVIGASI MENU
+        function loadMasterData() {
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run.withSuccessHandler(function(response) {
+                    rawMonitoringData = JSON.parse(response).data || [];
+                    renderRekap();
+                }).getKaryawanData(currentUser.email, currentUser.role, currentUser.departemen);
+            }
+        }
+
         function switchMenu(menuId) {
             document.getElementById('sec-penilaian').classList.add('hidden');
             document.getElementById('sec-monitoring').classList.add('hidden');
             document.getElementById('sec-dashboard').classList.add('hidden');
-
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
 
             document.getElementById(`sec-${menuId}`).classList.remove('hidden');
@@ -237,17 +230,14 @@
             if(menuId === 'dashboard') loadDashboardData();
         }
 
-        // HAK AKSES
         function aturHakAksesMenu() {
             const role = currentUser.role;
             const btnDash = document.getElementById('btn-dashboard');
-            
             if (role === 'Superadmin' || role === 'Direksi' || role === 'HRGA Manager' || role === 'Manager' || role === 'Supervisor') {
                 btnDash.classList.remove('hidden');
             }
         }
 
-        // VALIDASI LEMBAR PENILAIAN
         function checkPeriodeValidation() {
             const thn = document.getElementById('pilihTahun').value;
             const sem = document.getElementById('pilihSemester').value;
@@ -255,19 +245,21 @@
             
             if (thn !== "" && sem !== "") {
                 workspace.classList.remove('hidden'); 
-                document.getElementById('infoNama').innerText = "Data Terpilih";
-                document.getElementById('infoJabatan').innerText = "-";
             } else {
                 workspace.classList.add('hidden');
             }
         }
 
-        // RENDER TABEL MONITORING (Beserta Tombol PDF)
         function renderRekap() {
             const fTahun = document.getElementById('filterTahunMonitoring').value;
             const fSem = document.getElementById('filterSemesterMonitoring').value;
             const tbody = document.getElementById('tbodyMonitoring');
             tbody.innerHTML = '';
+
+            if (rawMonitoringData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-3 border text-center text-gray-400">Tidak ada data penilaian.</td></tr>`;
+                return;
+            }
 
             rawMonitoringData.forEach(k => {
                 if (fTahun && k.Tahun !== fTahun) return;
@@ -275,7 +267,7 @@
                 if (currentUser.role === "Admin Arsip" && k.Status_Dokumen !== "DISAHKAN_DIREKSI") return; 
 
                 const tr = document.createElement('tr');
-                let btnAksi = `<button onclick="alert('Membuka detail KPI ${k.Nama}')" class="bg-gray-800 text-white px-3 py-1 rounded text-xs">Lihat</button>`;
+                let btnAksi = `<button onclick="bukaLembarKaryawan('${k.Tahun}','${k.Semester}','${k.Nama}','${k.Jabatan}')" class="bg-gray-800 text-white px-3 py-1 rounded text-xs">Lihat</button>`;
                 
                 if (k.Status_Dokumen === "DISAHKAN_DIREKSI") {
                     btnAksi += `<button onclick="cetakArsipPDF('${k.Tahun}', '${k.Semester}', '${k.Nama}')" class="ml-2 bg-emerald-600 text-white px-3 py-1 rounded text-xs font-bold">Unduh PDF</button>`;
@@ -292,12 +284,19 @@
             });
         }
 
-        // CETAK PDF OTOMATIS
+        function bukaLembarKaryawan(tahun, semester, nama, jabatan) {
+            document.getElementById('pilihTahun').value = tahun;
+            document.getElementById('pilihSemester').value = semester;
+            document.getElementById('infoNama').innerText = nama;
+            document.getElementById('infoJabatan').innerText = jabatan;
+            checkPeriodeValidation();
+            switchMenu('penilaian');
+        }
+
         function cetakArsipPDF(tahun, semester, nama) {
             const originalTitle = document.title;
             let formattedSem = semester === "Semester 1" ? "I" : "II";
             document.title = `${tahun}-${formattedSem}-${nama}`; 
-            
             switchMenu('penilaian'); 
             setTimeout(() => {
                 window.print();
@@ -305,10 +304,14 @@
             }, 500);
         }
 
-        // RENDER GRAFIK
         function loadDashboardData() {
-            if(rawDashboardData.departemen.length > 0) renderDeptChart(rawDashboardData.departemen);
-            if(rawDashboardData.individual.length > 0) populateKaryawanDropdown(rawDashboardData.individual);
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run.withSuccessHandler(function(response) {
+                    rawDashboardData = JSON.parse(response);
+                    renderDeptChart(rawDashboardData.departemen);
+                    populateKaryawanDropdown(rawDashboardData.individual);
+                }).getDashboardData(currentUser.email, currentUser.role, currentUser.departemen);
+            }
         }
 
         function renderDeptChart(deptData) {
@@ -335,7 +338,7 @@
 
         function populateKaryawanDropdown(indvData) {
             const select = document.getElementById('filterKaryawanDashboard');
-            if(select.options.length > 1) return; 
+            select.innerHTML = '<option value="">Pilih Karyawan...</option>'; 
             let uniqueNames = [...new Set(indvData.map(item => item.nama))];
             uniqueNames.forEach(nama => { select.innerHTML += `<option value="${nama}">${nama}</option>`; });
         }
@@ -364,27 +367,6 @@
                 },
                 options: { responsive: true, scales: { y: { min: 0, max: 5 } } }
             });
-        }
-
-        // DATA DUMMY (Akan diganti fungsi Google Script asli)
-        function inisialisasiDataDummy() {
-            rawMonitoringData = [
-                { id: "001", Nama: "M. Imam Muslim", Departemen: "General Affair", Tahun: "2026", Semester: "Semester 1", Total_Skor: "2.97", Status_Dokumen: "DISAHKAN_DIREKSI" },
-                { id: "002", Nama: "Tri Miranda Prasasti", Departemen: "Laboratorium", Tahun: "2026", Semester: "Semester 1", Total_Skor: "3.29", Status_Dokumen: "DISAHKAN_DIREKSI" },
-                { id: "003", Nama: "Nilam Yuniari", Departemen: "Customer Service", Tahun: "2026", Semester: "Semester 1", Total_Skor: "3.09", Status_Dokumen: "TERVERIFIKASI_HR" }
-            ];
-            rawDashboardData.departemen = [
-                { departemen: "Laboratorium", rataRata: 4.10 },
-                { departemen: "Customer Service", rataRata: 3.50 },
-                { departemen: "General Affair", rataRata: 2.97 },
-                { departemen: "Finance", rataRata: 2.10 }
-            ];
-            rawDashboardData.individual = [
-                { nama: "M. Imam Muslim", periode: "2025 - Sem 2", skor: 3.20 },
-                { nama: "M. Imam Muslim", periode: "2026 - Sem 1", skor: 2.97 },
-                { nama: "Tri Miranda Prasasti", periode: "2025 - Sem 2", skor: 4.00 },
-                { nama: "Tri Miranda Prasasti", periode: "2026 - Sem 1", skor: 3.29 }
-            ];
         }
     </script>
 </body>
