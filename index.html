@@ -648,33 +648,15 @@
 
       function refreshQRCodes() {
         const stat = currentDocumentStatus;
-        const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=75x75&data=";
+        ["qrAtasan", "qrVerif1", "qrVerif2", "qrDireksi"].forEach(id => document.getElementById(id).classList.add("opacity-0"));
+        if (stat === "DRAFT") return;
         
-        // QR Atasan
-        if (stat.includes("PENILAIAN_SELESAI") || stat.includes("TERVERIFIKASI") || stat.includes("DISAHKAN")) {
-            const el = document.getElementById("qrAtasan");
-            el.src = qrUrl + encodeURIComponent(chainAtasan ? chainAtasan.nama : "...");
-            el.classList.remove("opacity-0");
-        }
-        // QR Verifikator 1
-        if (stat.includes("TERVERIFIKASI_ATASAN") || stat.includes("TERVERIFIKASI_HR") || stat.includes("DISAHKAN")) {
-            const el = document.getElementById("qrVerif1");
-            el.src = qrUrl + encodeURIComponent(chainVerif1 ? chainVerif1.nama : "...");
-            el.classList.remove("opacity-0");
-        }
-        // QR Verifikator 2
-        if (stat.includes("TERVERIFIKASI_HR") || stat.includes("DISAHKAN")) {
-            const el = document.getElementById("qrVerif2");
-            el.src = qrUrl + encodeURIComponent(chainVerif2 ? chainVerif2.nama : "...");
-            el.classList.remove("opacity-0");
-        }
-        // QR Direksi
-        if (stat.includes("DISAHKAN")) {
-            const el = document.getElementById("qrDireksi");
-            el.src = qrUrl + encodeURIComponent(chainSahkan ? chainSahkan.nama : "...");
-            el.classList.remove("opacity-0");
-        }
-    }
+        // Asumsi tanda tangan tersemat sesuai progres
+        if (stat.includes("SELESAI") || stat.includes("VERIFIKASI") || stat.includes("DISAHKAN")) document.getElementById("qrAtasan").classList.remove("opacity-0");
+        if (stat.includes("VERIFIKASI") || stat.includes("DISAHKAN")) document.getElementById("qrVerif1").classList.remove("opacity-0");
+        if (stat.includes("TERVERIFIKASI_HR") || stat.includes("DISAHKAN")) document.getElementById("qrVerif2").classList.remove("opacity-0");
+        if (stat.includes("DISAHKAN")) document.getElementById("qrDireksi").classList.remove("opacity-0");
+      }
 
       function simpanLog(pesan) {
         auditTrails.unshift(`<div class="border-b border-gray-100 pb-1.5"><span class="text-gray-400">${getTimestamp()}</span> <span class="font-bold text-teal-700">${currentUser.nama} (${currentUser.jabatan}):</span> ${pesan}</div>`);
