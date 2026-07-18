@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
     <style>
       .nav-btn.active {
         background-color: #00a693;
@@ -198,6 +199,13 @@
             class="nav-btn w-full text-left p-3 rounded-lg text-sm transition"
           >
             📊 Dashboard Global
+          </button>
+          <button
+            onclick="switchMenu('grafik')"
+            id="btn-grafik"
+            class="nav-btn w-full text-left p-3 rounded-lg text-sm transition"
+          >
+            📈 Grafik Performa
           </button>
           <button
             onclick="switchMenu('arsip')"
@@ -780,9 +788,18 @@
         <!-- SEKSI 2: REKAPITULASI -->
         <div id="sec-rekap" class="hidden space-y-6 max-w-7xl mx-auto">
           <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h2 class="text-lg font-black text-gray-800 mb-4 uppercase">
-              Rekapitulasi Global KPI Karyawan
-            </h2>
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+              <h2 class="text-lg font-black text-gray-800 uppercase">
+                Rekapitulasi Global KPI Karyawan
+              </h2>
+              <input
+                type="text"
+                id="rekapSearch"
+                oninput="renderRekap()"
+                placeholder="🔎 Cari nama staf..."
+                class="w-full md:w-72 p-2 border rounded-lg text-sm bg-gray-50 outline-none"
+              />
+            </div>
             <div class="overflow-x-auto">
               <table
                 class="w-full text-left text-sm border-collapse border border-gray-200"
@@ -805,6 +822,113 @@
                   class="divide-y divide-gray-200"
                 ></tbody>
               </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEKSI BARU: GRAFIK PERFORMA (per orang & per departemen) -->
+        <div id="sec-grafik" class="hidden space-y-6 max-w-6xl mx-auto">
+          <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+            <div class="flex gap-2 border-b mb-5">
+              <button
+                id="tabGrafikOrang"
+                onclick="switchTabGrafik('orang')"
+                class="px-4 py-2 text-sm font-bold border-b-2 border-[#00A693] text-[#00A693]"
+              >
+                👤 Per Orang
+              </button>
+              <button
+                id="tabGrafikDept"
+                onclick="switchTabGrafik('dept')"
+                class="px-4 py-2 text-sm font-bold border-b-2 border-transparent text-gray-500"
+              >
+                🏢 Per Departemen
+              </button>
+            </div>
+
+            <!-- TAB PER ORANG -->
+            <div id="grafikOrangPanel">
+              <div class="flex flex-col md:flex-row gap-3 mb-3" id="grafikOrangSubTabWrap">
+                <button
+                  id="subTabTren"
+                  onclick="switchSubTabOrang('tren')"
+                  class="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#00A693] text-white"
+                >
+                  Tren Perorangan
+                </button>
+                <button
+                  id="subTabTim"
+                  onclick="switchSubTabOrang('tim')"
+                  class="hidden px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600"
+                >
+                  Perbandingan Tim
+                </button>
+              </div>
+
+              <!-- Sub-tab: Tren Perorangan -->
+              <div id="grafikTrenPanel">
+                <div class="flex flex-col md:flex-row gap-3 mb-4">
+                  <input
+                    type="text"
+                    id="grafikOrangSearch"
+                    oninput="populateGrafikOrangDropdown()"
+                    placeholder="🔎 Cari nama staf..."
+                    class="w-full md:w-64 p-2 border rounded-lg text-sm bg-gray-50 outline-none"
+                  />
+                  <select
+                    id="grafikOrangSelector"
+                    onchange="muatGrafikPerorangan()"
+                    class="w-full md:flex-1 p-2 border rounded-lg text-sm bg-gray-50 outline-none"
+                  ></select>
+                </div>
+                <div id="grafikOrangInfo" class="text-xs text-gray-500 font-semibold mb-3"></div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div class="border rounded-lg p-3">
+                    <div class="text-xs font-bold text-gray-600 uppercase mb-2">Tren Nilai Akhir &amp; Grade</div>
+                    <canvas id="chartOrangAkhir" height="220"></canvas>
+                  </div>
+                  <div class="border rounded-lg p-3">
+                    <div class="text-xs font-bold text-gray-600 uppercase mb-2">Rincian Hard Skill vs Soft Skill</div>
+                    <canvas id="chartOrangRincian" height="220"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sub-tab: Perbandingan Tim (Manager/SPV/Admin) -->
+              <div id="grafikTimPanel" class="hidden">
+                <div class="flex flex-col md:flex-row gap-3 mb-4">
+                  <select id="grafikTimTahun" class="p-2 border rounded-lg text-sm bg-gray-50 outline-none"></select>
+                  <select id="grafikTimSemester" class="p-2 border rounded-lg text-sm bg-gray-50 outline-none">
+                    <option value="1">Semester I</option>
+                    <option value="2">Semester II</option>
+                  </select>
+                  <button
+                    onclick="muatGrafikTim()"
+                    class="bg-[#00A693] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-teal-700 transition"
+                  >
+                    Tampilkan
+                  </button>
+                </div>
+                <div class="border rounded-lg p-3">
+                  <div class="text-xs font-bold text-gray-600 uppercase mb-2">Perbandingan Nilai Akhir Tim (periode terpilih)</div>
+                  <canvas id="chartTim" height="260"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB PER DEPARTEMEN -->
+            <div id="grafikDeptPanel" class="hidden">
+              <div class="flex flex-col md:flex-row gap-3 mb-4">
+                <select
+                  id="grafikDeptSelector"
+                  onchange="muatGrafikDepartemen()"
+                  class="w-full md:w-72 p-2 border rounded-lg text-sm bg-gray-50 outline-none"
+                ></select>
+              </div>
+              <div class="border rounded-lg p-3">
+                <div class="text-xs font-bold text-gray-600 uppercase mb-2">Tren Rata-rata Nilai Akhir Departemen</div>
+                <canvas id="chartDept" height="260"></canvas>
+              </div>
             </div>
           </div>
         </div>
@@ -1001,7 +1125,7 @@
       }
 
       function switchMenu(menu) {
-        ["penilaian", "rekap", "arsip"].forEach((m) => {
+        ["penilaian", "rekap", "grafik", "arsip"].forEach((m) => {
           document.getElementById("sec-" + m).classList.add("hidden");
           document.getElementById("btn-" + m).classList.remove("active");
         });
@@ -1009,21 +1133,24 @@
         document.getElementById("btn-" + menu).classList.add("active");
         if (menu === "rekap") renderRekap();
         if (menu === "arsip") siapkanArsip();
+        if (menu === "grafik") siapkanGrafik();
       }
 
-      // FULL_ADMIN   : Direksi (Role) ATAU flag SuperAdmin=YES (mis. HRGA & IT Manager).
+      // FULL_ADMIN   : kolom "Role Sistem" = SuperAdmin, ATAU (cara lama) Direksi/flag SuperAdmin=YES.
       //                Lihat semua, unduh massal, buka kunci dokumen manapun, reset password siapa pun.
-      // ARCHIVE_ADMIN: Role = "AdminArsip" (mis. Admin Arsip KPI). Lihat semua + unduh massal SAJA.
+      // ARCHIVE_ADMIN: kolom "Role Sistem" = AdminArsip, ATAU (cara lama) Role = "AdminArsip".
       function getAccessLevel(user) {
         if (!user) return "STAFF";
+        const roleSistem = String(user.roleSistem || "").toLowerCase().trim();
         const sa =
+          roleSistem === "superadmin" ||
           user.superAdmin === true ||
           ["yes", "true", "1", "ya"].includes(
             String(user.superAdmin || "").toLowerCase().trim()
           );
         const role = String(user.role || "").toLowerCase().trim();
         if (sa || role === "direksi") return "SUPER_ADMIN";
-        if (role === "adminarsip") return "ARCHIVE_ADMIN";
+        if (roleSistem === "adminarsip" || role === "adminarsip") return "ARCHIVE_ADMIN";
         if (role === "manager" || role === "mgr") return "MANAGER";
         if (role === "supervisor" || role === "spv") return "SPV";
         return "STAFF";
@@ -1188,19 +1315,21 @@
       // Periode lama yang cuma berisi 2 opsi tetap (Semester 1/2 2026).
       function populateTahunSemester() {
         const tahunSekarang = new Date().getFullYear();
-        [document.getElementById("tahunFilter"), document.getElementById("arsipTahun")].forEach(
-          (sel) => {
-            if (!sel) return;
-            sel.innerHTML = "";
-            for (let y = tahunSekarang - 2; y <= 2100; y++) {
-              const opt = document.createElement("option");
-              opt.value = String(y);
-              opt.innerText = String(y);
-              if (y === tahunSekarang) opt.selected = true;
-              sel.appendChild(opt);
-            }
+        [
+          document.getElementById("tahunFilter"),
+          document.getElementById("arsipTahun"),
+          document.getElementById("grafikTimTahun"),
+        ].forEach((sel) => {
+          if (!sel) return;
+          sel.innerHTML = "";
+          for (let y = tahunSekarang - 2; y <= 2100; y++) {
+            const opt = document.createElement("option");
+            opt.value = String(y);
+            opt.innerText = String(y);
+            if (y === tahunSekarang) opt.selected = true;
+            sel.appendChild(opt);
           }
-        );
+        });
       }
 
       // Format periode TETAP "Semester X YYYY" (kompatibel dengan data lama).
@@ -1281,11 +1410,11 @@
         document.getElementById("ttdDisahkanNama").innerText = sahkanObj.nama;
         document.getElementById("ttdDisahkanJabatan").innerText = sahkanObj.jabatan;
 
-        const myEmail = (currentUser.email || "").trim().toLowerCase();
-        const isSelf = stafEmail === myEmail;
+        const myNik = String(currentUser.nik || "").trim();
+        const isSelf = String(staf.nik || "").trim() === myNik;
 
-        // Memastikan hak edit hanya untuk atasan sesuai Struktur
-        const canEdit = !isSelf && myEmail === atasanEmail;
+        // Memastikan hak edit hanya untuk atasan sesuai Struktur (dibandingkan via NIK)
+        const canEdit = !isSelf && myNik === String(atasanObj.nik || "").trim();
 
         document.getElementById("viewOnlyAlert").classList.toggle("hidden", canEdit);
 
@@ -1402,7 +1531,7 @@
         refreshQRCodes();
         kalkulasi();
         applyLockState();
-        muatHasilTersimpan(stafEmail);
+        muatHasilTersimpan(String(staf.nik || "").trim());
       }
 
       // Menyusun ulang tampilan Audit Trail dari data RESMI milik server
@@ -1450,12 +1579,12 @@
           .join("");
       }
 
-      async function muatHasilTersimpan(stafEmail) {
+      async function muatHasilTersimpan(stafNik) {
         try {
           const periode = currentPeriode();
           const j = await apiCall("getHasil", { periode: periode });
           const rec = ((j && j.data) || []).find(
-            (r) => (r.emailStaf || "").toLowerCase() === stafEmail
+            (r) => (r.nikStaf || "") === stafNik
           );
           if (!rec) {
             applyLockState();
@@ -1772,7 +1901,7 @@
           action: "simpanPenilaian",
           aksi: aksi,
           periode: currentPeriode(),
-          emailStaf: currentStaf.email,
+          nikStaf: currentStaf.nik,
           alasanTindakan: alasan,
         };
         if (aksi === "simpan" || aksi === "ajukan") {
@@ -1808,7 +1937,7 @@
             document.getElementById("alasanLog").value = "";
             // Muat ulang status/skor/audit trail dari server -- sumber
             // kebenaran tunggal, bukan asumsi hasil di layar.
-            await muatHasilTersimpan(currentStaf.email.trim().toLowerCase());
+            await muatHasilTersimpan(String(currentStaf.nik || "").trim());
           } else {
             alert("Gagal: " + (j.error || "tidak diketahui"));
           }
@@ -1827,29 +1956,29 @@
       // di tahap yang sesuai untuk peran itu. Selaras dengan ACTION_DEFS di
       // server, supaya tombol yang tampil tidak pernah menyesatkan.
       function refreshActionButtons() {
-        const myEmail = (currentUser.email || "").trim().toLowerCase();
+        const myNik = String(currentUser.nik || "").trim();
         const status = (currentDocumentStatus || "DRAFT").toUpperCase();
-        const atasanEmail = ((chainAtasan && chainAtasan.email) || "").trim().toLowerCase();
-        const verif1Email = ((chainVerif1 && chainVerif1.email) || "").trim().toLowerCase();
-        const verif2Email = ((chainVerif2 && chainVerif2.email) || "").trim().toLowerCase();
-        const sahkanEmail = ((chainSahkan && chainSahkan.email) || "").trim().toLowerCase();
+        const atasanNik = String((chainAtasan && chainAtasan.nik) || "").trim();
+        const verif1Nik = String((chainVerif1 && chainVerif1.nik) || "").trim();
+        const verif2Nik = String((chainVerif2 && chainVerif2.nik) || "").trim();
+        const sahkanNik = String((chainSahkan && chainSahkan.nik) || "").trim();
         const editableStage = status === "DRAFT" || status === "DIBUKA_REVISI";
 
         const visMap = {
-          btnAjukan: editableStage && myEmail === atasanEmail && myEmail !== "",
-          btnVerifikasi1: status === "PENILAIAN_SELESAI" && myEmail === verif1Email,
-          btnKembalikan1: status === "PENILAIAN_SELESAI" && myEmail === verif1Email,
-          btnVerifikasi2: status === "TERVERIFIKASI_ATASAN" && myEmail === verif2Email,
-          btnKembalikan2: status === "TERVERIFIKASI_ATASAN" && myEmail === verif2Email,
-          btnSahkan: status === "TERVERIFIKASI_HR" && myEmail === sahkanEmail,
-          btnKembalikan3: status === "TERVERIFIKASI_HR" && myEmail === sahkanEmail,
+          btnAjukan: editableStage && myNik === atasanNik && myNik !== "",
+          btnVerifikasi1: status === "PENILAIAN_SELESAI" && myNik === verif1Nik,
+          btnKembalikan1: status === "PENILAIAN_SELESAI" && myNik === verif1Nik,
+          btnVerifikasi2: status === "TERVERIFIKASI_ATASAN" && myNik === verif2Nik,
+          btnKembalikan2: status === "TERVERIFIKASI_ATASAN" && myNik === verif2Nik,
+          btnSahkan: status === "TERVERIFIKASI_HR" && myNik === sahkanNik,
+          btnKembalikan3: status === "TERVERIFIKASI_HR" && myNik === sahkanNik,
         };
         Object.keys(visMap).forEach((id) => {
           const el = document.getElementById(id);
           if (el) el.classList.toggle("hidden", !visMap[id]);
         });
 
-        const canEditNow = editableStage && myEmail === atasanEmail;
+        const canEditNow = editableStage && myNik === atasanNik;
         const btnSimpanEl = document.getElementById("btnSimpan");
         if (btnSimpanEl) btnSimpanEl.classList.toggle("hidden", !canEditNow);
         document.getElementById("viewOnlyAlert").classList.toggle("hidden", canEditNow);
@@ -1858,9 +1987,9 @@
       function applyLockState() {
         const status = (currentDocumentStatus || "").toUpperCase();
         const fullyLocked = status.indexOf("DISAHKAN") > -1;
-        const myEmail = (currentUser.email || "").trim().toLowerCase();
-        const atasanEmail = ((chainAtasan && chainAtasan.email) || "").trim().toLowerCase();
-        const isAtasan = myEmail === atasanEmail;
+        const myNik = String(currentUser.nik || "").trim();
+        const atasanNik = String((chainAtasan && chainAtasan.nik) || "").trim();
+        const isAtasan = myNik === atasanNik;
         const editableStage = status === "DRAFT" || status === "DIBUKA_REVISI";
         // Skor dikunci untuk atasan sendiri begitu sudah diajukan (bukan cuma
         // saat DISAHKAN) -- supaya tidak ada perubahan diam-diam sementara
@@ -1880,7 +2009,7 @@
         const accLevel = getAccessLevel(currentUser);
         const isUnlocker =
           accLevel === "SUPER_ADMIN" ||
-          (chainSahkan && (chainSahkan.email || "").trim().toLowerCase() === myEmail);
+          (chainSahkan && String(chainSahkan.nik || "").trim() === myNik);
 
         const lockBanner = document.getElementById("lockAlert");
         const btnBuka = document.getElementById("btnBukaKunci");
@@ -2005,15 +2134,21 @@
         const myDept = (currentUser.departemen || "").trim().toLowerCase();
         const accLevel = getAccessLevel(currentUser);
         const descendants = getAllDescendantsClient(myEmail);
+        const kataKunci = (document.getElementById("rekapSearch").value || "")
+          .trim()
+          .toLowerCase();
 
         const filteredStaf = MOCK_KARYAWAN.filter((k) => {
           const kEmail = (k.email || "").trim().toLowerCase();
           const kDept = (k.departemen || "").trim().toLowerCase();
-          if (accLevel === "SUPER_ADMIN" || accLevel === "ARCHIVE_ADMIN") return true;
-          if (kEmail === myEmail) return true;
-          if (descendants.includes(kEmail)) return true;
-          if (accLevel === "MANAGER" && kDept === myDept) return true;
-          return false;
+          let boleh = false;
+          if (accLevel === "SUPER_ADMIN" || accLevel === "ARCHIVE_ADMIN") boleh = true;
+          else if (kEmail === myEmail) boleh = true;
+          else if (descendants.includes(kEmail)) boleh = true;
+          else if (accLevel === "MANAGER" && kDept === myDept) boleh = true;
+          if (!boleh) return false;
+          if (kataKunci && !(k.nama || "").toLowerCase().includes(kataKunci)) return false;
+          return true;
         });
 
         let hasil = [];
@@ -2028,6 +2163,7 @@
         const html = filteredStaf
           .map((k) => {
             const kEmail = (k.email || "").trim().toLowerCase();
+            const kNik = String(k.nik || "").trim();
             const sLink = MOCK_STRUKTUR.find(
               (s) =>
                 (s.email_staf_dinilai || "").trim().toLowerCase() === kEmail
@@ -2042,9 +2178,7 @@
             }
             if (!aObj) aObj = { nama: "-" };
 
-            const rec = hasil.find(
-              (r) => (r.emailStaf || "").toLowerCase() === kEmail
-            );
+            const rec = hasil.find((r) => (r.nikStaf || "") === kNik);
             const hard = rec ? Number(rec.nilaiHard).toFixed(2) : "-";
             const soft = rec ? Number(rec.nilaiSoft).toFixed(2) : "-";
             const total = rec ? Number(rec.nilaiAkhir).toFixed(2) : "-";
@@ -2069,7 +2203,258 @@
                 </tr>`;
           })
           .join("");
-        document.getElementById("rekapTableBody").innerHTML = html;
+        document.getElementById("rekapTableBody").innerHTML =
+          html ||
+          `<tr><td colspan="7" class="p-4 text-center text-gray-400 italic">Tidak ada staf yang cocok.</td></tr>`;
+      }
+
+      /* ==================== GRAFIK PERFORMA ====================
+         3 tampilan:
+         1) Tren Perorangan  -- garis nilai akhir + hard/soft + grade sepanjang periode,
+            untuk diri sendiri (Staf) atau siapa pun yang boleh dilihat (Manager/SPV/Admin).
+         2) Perbandingan Tim -- bar chart nilai akhir seluruh bawahan untuk 1 periode
+            (khusus Manager/SPV/Admin, pakai ulang endpoint getHasil yang sudah
+            terfilter hak akses).
+         3) Per Departemen   -- tren rata-rata nilai akhir 1 departemen (atau semua
+            departemen untuk admin), dihitung agregat di server (tidak membocorkan
+            nilai individu ke non-admin). */
+
+      let chartOrangAkhir = null,
+        chartOrangRincian = null,
+        chartTim = null,
+        chartDept = null;
+
+      function siapkanGrafik() {
+        populateTahunSemester();
+
+        const accLevel = getAccessLevel(currentUser);
+        const punyaTim = ["SUPER_ADMIN", "ARCHIVE_ADMIN", "MANAGER", "SPV"].includes(accLevel);
+        document.getElementById("subTabTim").classList.toggle("hidden", !punyaTim);
+
+        switchTabGrafik("orang");
+        switchSubTabOrang("tren");
+        populateGrafikOrangDropdown();
+        populateGrafikDeptDropdown();
+      }
+
+      function switchTabGrafik(tab) {
+        document.getElementById("grafikOrangPanel").classList.toggle("hidden", tab !== "orang");
+        document.getElementById("grafikDeptPanel").classList.toggle("hidden", tab !== "dept");
+        document
+          .getElementById("tabGrafikOrang")
+          .classList.toggle("border-[#00A693]", tab === "orang");
+        document.getElementById("tabGrafikOrang").classList.toggle("text-[#00A693]", tab === "orang");
+        document.getElementById("tabGrafikOrang").classList.toggle("border-transparent", tab !== "orang");
+        document.getElementById("tabGrafikOrang").classList.toggle("text-gray-500", tab !== "orang");
+        document.getElementById("tabGrafikDept").classList.toggle("border-[#00A693]", tab === "dept");
+        document.getElementById("tabGrafikDept").classList.toggle("text-[#00A693]", tab === "dept");
+        document.getElementById("tabGrafikDept").classList.toggle("border-transparent", tab !== "dept");
+        document.getElementById("tabGrafikDept").classList.toggle("text-gray-500", tab !== "dept");
+        if (tab === "dept") muatGrafikDepartemen();
+      }
+
+      function switchSubTabOrang(sub) {
+        document.getElementById("grafikTrenPanel").classList.toggle("hidden", sub !== "tren");
+        document.getElementById("grafikTimPanel").classList.toggle("hidden", sub !== "tim");
+        const btnTren = document.getElementById("subTabTren");
+        const btnTim = document.getElementById("subTabTim");
+        btnTren.classList.toggle("bg-[#00A693]", sub === "tren");
+        btnTren.classList.toggle("text-white", sub === "tren");
+        btnTren.classList.toggle("bg-gray-100", sub !== "tren");
+        btnTren.classList.toggle("text-gray-600", sub !== "tren");
+        btnTim.classList.toggle("bg-[#00A693]", sub === "tim");
+        btnTim.classList.toggle("text-white", sub === "tim");
+        btnTim.classList.toggle("bg-gray-100", sub !== "tim");
+        btnTim.classList.toggle("text-gray-600", sub !== "tim");
+        if (sub === "tim" && !chartTim) muatGrafikTim();
+      }
+
+      // Dropdown "Tren Perorangan": diri sendiri + siapa pun yang boleh dilihat
+      // (bawahan berjenjang / semua utk admin), dengan pencarian nama.
+      function populateGrafikOrangDropdown() {
+        const sel = document.getElementById("grafikOrangSelector");
+        const myEmail = (currentUser.email || "").trim().toLowerCase();
+        const myDept = (currentUser.departemen || "").trim().toLowerCase();
+        const accLevel = getAccessLevel(currentUser);
+        const descendants = getAllDescendantsClient(myEmail);
+        const kataKunci = (document.getElementById("grafikOrangSearch").value || "")
+          .trim()
+          .toLowerCase();
+        const nikTerpilihSebelumnya = sel.value;
+
+        sel.innerHTML = "";
+        MOCK_KARYAWAN.forEach((k) => {
+          const kEmail = (k.email || "").trim().toLowerCase();
+          const kDept = (k.departemen || "").trim().toLowerCase();
+          let boleh = false;
+          if (accLevel === "SUPER_ADMIN" || accLevel === "ARCHIVE_ADMIN") boleh = true;
+          else if (kEmail === myEmail) boleh = true;
+          else if (descendants.includes(kEmail)) boleh = true;
+          else if (accLevel === "MANAGER" && kDept === myDept) boleh = true;
+          if (!boleh) return;
+          if (kataKunci && !(k.nama || "").toLowerCase().includes(kataKunci)) return;
+          const label = kEmail === myEmail ? `${k.nama} (Saya)` : `${k.nama} (${k.jabatan})`;
+          sel.innerHTML += `<option value="${k.nik}">${label}</option>`;
+        });
+
+        if (!sel.options.length) {
+          sel.innerHTML = `<option value="">-- Tidak ada staf yang cocok --</option>`;
+          return;
+        }
+        // Pertahankan pilihan sebelumnya kalau masih ada di daftar, else default ke diri sendiri
+        const tersedia = Array.from(sel.options).some((o) => o.value === nikTerpilihSebelumnya);
+        if (tersedia) sel.value = nikTerpilihSebelumnya;
+        else {
+          const myOpt = Array.from(sel.options).find((o) => o.value === (currentUser.nik || ""));
+          sel.value = myOpt ? myOpt.value : sel.options[0].value;
+        }
+        muatGrafikPerorangan();
+      }
+
+      const GRADE_WARNA = { A: "#00A693", B: "#3b82f6", C: "#f59e0b", D: "#f97316", E: "#dc2626" };
+
+      async function muatGrafikPerorangan() {
+        const nik = document.getElementById("grafikOrangSelector").value;
+        if (!nik) return;
+        const j = await apiPost({ action: "getGrafikPerorangan", nik: nik });
+        if (!j.ok) {
+          document.getElementById("grafikOrangInfo").innerText = "Gagal memuat: " + (j.error || "");
+          return;
+        }
+        const data = j.data || [];
+        const staf = j.staf || {};
+        document.getElementById("grafikOrangInfo").innerText = data.length
+          ? `${staf.nama} -- ${staf.jabatan} (${staf.departemen}) -- ${data.length} periode tercatat`
+          : `${staf.nama || "Staf ini"} belum punya riwayat penilaian.`;
+
+        const labels = data.map((d) => d.periode);
+
+        if (chartOrangAkhir) chartOrangAkhir.destroy();
+        chartOrangAkhir = new Chart(document.getElementById("chartOrangAkhir"), {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: "Nilai Akhir",
+                data: data.map((d) => d.nilaiAkhir),
+                borderColor: "#00A693",
+                backgroundColor: "#00A69333",
+                tension: 0.3,
+                pointBackgroundColor: data.map((d) => GRADE_WARNA[d.grade] || "#00A693"),
+                pointRadius: 6,
+              },
+            ],
+          },
+          options: {
+            scales: { y: { min: 0, max: 5 } },
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  afterLabel: (ctx) => "Grade: " + (data[ctx.dataIndex].grade || "-"),
+                },
+              },
+            },
+          },
+        });
+
+        if (chartOrangRincian) chartOrangRincian.destroy();
+        chartOrangRincian = new Chart(document.getElementById("chartOrangRincian"), {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: [
+              { label: "Hard Skill (70%)", data: data.map((d) => d.nilaiHard), backgroundColor: "#3b82f6" },
+              { label: "Soft Skill (30%)", data: data.map((d) => d.nilaiSoft), backgroundColor: "#a855f7" },
+            ],
+          },
+          options: { scales: { y: { min: 0, max: 5 } } },
+        });
+      }
+
+      async function muatGrafikTim() {
+        const th = document.getElementById("grafikTimTahun").value;
+        const sm = document.getElementById("grafikTimSemester").value;
+        const periode = `Semester ${sm} ${th}`;
+        const j = await apiCall("getHasil", { periode: periode });
+        const rows = (j && j.data) || [];
+
+        // getHasil sudah terfilter server sesuai hak akses (diri+bawahan / semua utk admin)
+        const labels = rows.map((r) => r.namaStaf);
+        if (chartTim) chartTim.destroy();
+        chartTim = new Chart(document.getElementById("chartTim"), {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: `Nilai Akhir -- ${periode}`,
+                data: rows.map((r) => r.nilaiAkhir),
+                backgroundColor: rows.map((r) => GRADE_WARNA[r.grade] || "#00A693"),
+              },
+            ],
+          },
+          options: {
+            indexAxis: "y",
+            scales: { x: { min: 0, max: 5 } },
+            plugins: { legend: { display: false } },
+          },
+        });
+      }
+
+      function populateGrafikDeptDropdown() {
+        const sel = document.getElementById("grafikDeptSelector");
+        const accLevel = getAccessLevel(currentUser);
+        const isAdmin = accLevel === "SUPER_ADMIN" || accLevel === "ARCHIVE_ADMIN";
+        sel.innerHTML = "";
+        if (isAdmin) {
+          const depts = [...new Set(MOCK_KARYAWAN.map((k) => (k.departemen || "").trim()).filter(Boolean))].sort();
+          depts.forEach((d) => (sel.innerHTML += `<option value="${d}">${d}</option>`));
+          sel.disabled = false;
+        } else {
+          sel.innerHTML = `<option value="${currentUser.departemen}">${currentUser.departemen}</option>`;
+          sel.disabled = true; // non-admin cuma boleh lihat departemennya sendiri
+        }
+      }
+
+      async function muatGrafikDepartemen() {
+        const dept = document.getElementById("grafikDeptSelector").value;
+        const j = await apiPost({ action: "getGrafikDepartemen", departemen: dept });
+        if (!j.ok) {
+          alert("Gagal memuat grafik departemen: " + (j.error || ""));
+          return;
+        }
+        const entry = (j.data || []).find((d) => d.departemen === dept) || { tren: [] };
+        const labels = entry.tren.map((t) => t.periode);
+
+        if (chartDept) chartDept.destroy();
+        chartDept = new Chart(document.getElementById("chartDept"), {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: `Rata-rata Nilai Akhir -- ${dept}`,
+                data: entry.tren.map((t) => t.rataAkhir),
+                borderColor: "#00A693",
+                backgroundColor: "#00A69333",
+                tension: 0.3,
+                pointRadius: 5,
+              },
+            ],
+          },
+          options: {
+            scales: { y: { min: 0, max: 5 } },
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  afterLabel: (ctx) =>
+                    "Jumlah staf dinilai: " + (entry.tren[ctx.dataIndex].jumlahStaf || 0),
+                },
+              },
+            },
+          },
+        });
       }
 
       /* ==================== ARSIP & UNDUH MASSAL ====================
