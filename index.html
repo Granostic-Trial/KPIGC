@@ -788,17 +788,32 @@
         <!-- SEKSI 2: REKAPITULASI -->
         <div id="sec-rekap" class="hidden space-y-6 max-w-7xl mx-auto">
           <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
               <h2 class="text-lg font-black text-gray-800 uppercase">
                 Rekapitulasi Global KPI Karyawan
               </h2>
-              <input
-                type="text"
-                id="rekapSearch"
-                oninput="renderRekap()"
-                placeholder="🔎 Cari nama staf..."
-                class="w-full md:w-72 p-2 border rounded-lg text-sm bg-gray-50 outline-none"
-              />
+              <div class="flex flex-col md:flex-row gap-2 w-full lg:w-auto">
+                <select
+                  id="rekapTahun"
+                  onchange="renderRekap()"
+                  class="p-2 border rounded-lg text-sm font-bold bg-gray-50 outline-none"
+                ></select>
+                <select
+                  id="rekapSemester"
+                  onchange="renderRekap()"
+                  class="p-2 border rounded-lg text-sm font-bold bg-gray-50 outline-none"
+                >
+                  <option value="1">Semester I</option>
+                  <option value="2">Semester II</option>
+                </select>
+                <input
+                  type="text"
+                  id="rekapSearch"
+                  oninput="renderRekap()"
+                  placeholder="🔎 Cari nama staf..."
+                  class="w-full md:w-64 p-2 border rounded-lg text-sm bg-gray-50 outline-none"
+                />
+              </div>
             </div>
             <div class="overflow-x-auto">
               <table
@@ -978,6 +993,20 @@
 
     <!-- Area render offscreen untuk konversi PDF massal (jangan dihapus, dipakai script) -->
     <div id="massalRenderArea" style="position:fixed; left:-10000px; top:0; width:1050px; background:#fff;"></div>
+
+    <!-- POP-UP SAPAAN + MOTIVASI (muncul singkat setelah login, hilang otomatis) -->
+    <div
+      id="sapaanOverlay"
+      class="hidden fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+    >
+      <div
+        id="sapaanCard"
+        class="opacity-0 scale-95 transition-all duration-700 ease-out bg-white/95 backdrop-blur-sm border border-teal-100 shadow-2xl rounded-2xl px-8 py-7 max-w-md mx-4 text-center"
+      >
+        <div id="sapaanTeks" class="text-2xl font-black text-[#00A693] mb-2"></div>
+        <div id="motivasiTeks" class="text-sm text-slate-600 leading-relaxed"></div>
+      </div>
+    </div>
 
     <!-- MODAL GANTI PASSWORD -->
     <div
@@ -1292,7 +1321,11 @@
               populateTahunSemester();
               populateStafDropdown();
               applyNavVisibility();
-              if (currentUser.mustChange) openGantiPassword(true);
+              if (currentUser.mustChange) {
+                openGantiPassword(true);
+              } else {
+                tampilkanSapaanLogin();
+              }
             } else {
               alert(j.error || "Email atau Password salah!");
             }
@@ -1311,6 +1344,82 @@
         document.getElementById("btn-arsip").classList.toggle("hidden", !boleh);
       }
 
+      /* ==================== POP-UP SAPAAN + MOTIVASI SAAT LOGIN ====================
+         Tampil singkat (fade in -> tahan ~5 detik -> fade out -> hilang) setiap
+         kali login berhasil. Sapaan & motivasi dipilih ACAK & independen satu
+         sama lain setiap login (bisa saja kombinasi sama berulang, itu wajar). */
+      const DAFTAR_SAPAAN = [
+        "Hai, {nama}!",
+        "Halo, {nama}!",
+        "Selamat datang, {nama}!",
+        "Berjumpa kembali, {nama}!",
+      ];
+      const DAFTAR_MOTIVASI = [
+        "Setiap kontribusi yang Anda berikan hari ini menjadi bagian dari keberhasilan organisasi di masa depan. Selamat bekerja.",
+        "Kinerja yang konsisten dimulai dari komitmen terhadap setiap tanggung jawab yang dijalankan dengan baik.",
+        "Mari jadikan setiap target sebagai kesempatan untuk terus bertumbuh dan memberikan nilai terbaik.",
+        "Pencapaian terbaik lahir dari disiplin, kolaborasi, dan semangat untuk terus berkembang.",
+        "Terima kasih atas dedikasi dan profesionalisme yang Anda berikan bagi kemajuan perusahaan.",
+        "KPI bukan sekadar angka, tetapi cerminan kontribusi nyata dalam mencapai tujuan bersama.",
+        "Keberhasilan organisasi dibangun dari pencapaian setiap individu yang bekerja dengan integritas dan tanggung jawab.",
+        "Teruslah menjaga kualitas kerja, karena setiap langkah kecil membawa dampak yang berarti.",
+        "Semoga hari ini menjadi kesempatan untuk memberikan hasil kerja terbaik dan menciptakan nilai positif bagi tim.",
+        "Mari bekerja dengan fokus, semangat, dan komitmen untuk mencapai kinerja yang semakin baik setiap harinya.",
+        "Semoga hari ini jadi langkah kecil menuju pencapaian yang lebih besar.",
+        "Target boleh tinggi, tapi semangat juga harus tetap tinggi. Semangat bekerja!",
+        "Lakukan yang terbaik hari ini. Progres kecil tetap berarti.",
+        "Terima kasih sudah menjadi bagian dari perjalanan dan pertumbuhan perusahaan.",
+        "Setiap pekerjaan yang diselesaikan dengan baik selalu membawa dampak positif.",
+        "Fokus pada prosesnya, nikmati setiap perkembangan yang berhasil dicapai.",
+        "Tidak harus sempurna setiap hari, yang penting terus berkembang dan memberikan yang terbaik.",
+        "Semoga hari ini penuh semangat, kolaborasi yang baik, dan hasil kerja yang membanggakan.",
+        "Yuk mulai hari ini dengan energi positif dan semangat untuk mencapai target bersama.",
+        "Terus melangkah, terus bertumbuh, dan terus memberi arti melalui setiap pekerjaan yang dilakukan.",
+        "Kerja yang bermakna dimulai dari langkah yang konsisten.",
+        "Hari ini adalah kesempatan baru untuk menciptakan dampak yang lebih baik.",
+        "Berkembang bukan tentang menjadi sempurna, tetapi menjadi lebih baik dari kemarin.",
+        "Kolaborasi yang baik selalu menghasilkan pencapaian yang lebih besar.",
+        "Terima kasih telah menjadi bagian dari budaya kerja yang saling mendukung dan bertumbuh.",
+        "Setiap kontribusi memiliki arti. Mari terus bergerak maju bersama.",
+        "Mulai hari dengan tujuan yang jelas, akhiri dengan pencapaian yang membanggakan.",
+        "Kinerja terbaik lahir dari komitmen yang dijaga setiap hari.",
+        "Bersama kita membangun hasil, bersama kita menciptakan perubahan.",
+        "Semoga hari ini menjadi hari yang produktif, positif, dan penuh pencapaian.",
+      ];
+
+      function tampilkanSapaanLogin() {
+        const nama = (currentUser && currentUser.nama) || "";
+        const sapaan =
+          DAFTAR_SAPAAN[Math.floor(Math.random() * DAFTAR_SAPAAN.length)].replace(
+            "{nama}",
+            nama
+          );
+        const motivasi =
+          DAFTAR_MOTIVASI[Math.floor(Math.random() * DAFTAR_MOTIVASI.length)];
+
+        document.getElementById("sapaanTeks").innerText = sapaan;
+        document.getElementById("motivasiTeks").innerText = motivasi;
+
+        const overlay = document.getElementById("sapaanOverlay");
+        const card = document.getElementById("sapaanCard");
+
+        overlay.classList.remove("hidden");
+        // Beri browser 1 frame supaya transition CSS "opacity/scale" benar-benar
+        // ter-animasi (bukan langsung loncat ke kondisi akhir).
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            card.classList.remove("opacity-0", "scale-95");
+            card.classList.add("opacity-100", "scale-100");
+          });
+        });
+
+        setTimeout(() => {
+          card.classList.remove("opacity-100", "scale-100");
+          card.classList.add("opacity-0", "scale-95");
+          setTimeout(() => overlay.classList.add("hidden"), 700); // tunggu transisi fade-out selesai
+        }, 5000);
+      }
+
       // Dropdown Tahun (sampai 2100) + Semester I/II, menggantikan dropdown
       // Periode lama yang cuma berisi 2 opsi tetap (Semester 1/2 2026).
       function populateTahunSemester() {
@@ -1319,6 +1428,7 @@
           document.getElementById("tahunFilter"),
           document.getElementById("arsipTahun"),
           document.getElementById("grafikTimTahun"),
+          document.getElementById("rekapTahun"),
         ].forEach((sel) => {
           if (!sel) return;
           sel.innerHTML = "";
@@ -1336,6 +1446,15 @@
       function currentPeriode() {
         const th = document.getElementById("tahunFilter").value;
         const sm = document.getElementById("semesterFilter").value;
+        return `Semester ${sm} ${th}`;
+      }
+
+      // Filter periode KHUSUS Dashboard Global -- independen dari filter di
+      // halaman Lembar Penilaian, supaya bisa lihat rekap periode lain tanpa
+      // perlu bolak-balik ganti staf yang sedang dinilai.
+      function currentPeriodeRekap() {
+        const th = document.getElementById("rekapTahun").value;
+        const sm = document.getElementById("rekapSemester").value;
         return `Semester ${sm} ${th}`;
       }
 
@@ -1565,14 +1684,20 @@
               ? new Date(a.ts).toLocaleString("id-ID", { hour12: false })
               : "-";
             const label = AKSI_LABEL[a.aksi] || a.aksi || "-";
+            // Baris catatan/alasan SENGAJA dipisah ke <div> tersendiri di bawah
+            // baris identitas+status, supaya kalau teksnya panjang, wrapping-nya
+            // mengalir sendiri (tidak menyambung ke tengah baris timestamp/nama).
             const alasanHtml = a.alasan
-              ? ` <em>&mdash; alasan: &quot;${a.alasan}&quot;</em>`
+              ? `<div class="pl-3 mt-0.5 border-l-2 border-teal-200 text-slate-500 italic break-words whitespace-normal">&ldquo;${a.alasan}&rdquo;</div>`
               : "";
             return (
-              `<div class="border-b border-gray-100 pb-1.5">` +
+              `<div class="border-b border-gray-100 pb-1.5 mb-1.5">` +
+              `<div class="break-words whitespace-normal">` +
               `<span class="text-gray-400">[${waktu}]</span> ` +
               `<span class="font-bold text-teal-700">${a.oleh || "-"} (${a.jabatan || "-"}):</span> ` +
-              `${label} &rarr; status: <b>${a.statusBaru || "-"}</b>${alasanHtml}` +
+              `${label} &rarr; status: <b>${a.statusBaru || "-"}</b>` +
+              `</div>` +
+              alasanHtml +
               `</div>`
             );
           })
@@ -2153,7 +2278,7 @@
 
         let hasil = [];
         try {
-          const periode = currentPeriode();
+          const periode = currentPeriodeRekap();
           const j = await apiCall("getHasil", { periode: periode });
           hasil = (j && j.data) || [];
         } catch (e) {
@@ -2186,11 +2311,12 @@
             const statusStyle = rec
               ? "bg-teal-100 text-teal-700"
               : "bg-gray-100 text-gray-600";
+            const jabatanDept = [k.jabatan, k.departemen].filter(Boolean).join(" / ");
 
             return `
                 <tr class="hover:bg-gray-50 transition">
                     <td class="p-3 border font-bold text-slate-700">${k.nama}</td>
-                    <td class="p-3 border text-xs text-gray-500">${k.jabatan}</td>
+                    <td class="p-3 border text-xs text-gray-500">${jabatanDept}</td>
                     <td class="p-3 border text-xs text-teal-700 font-bold">${aObj.nama}</td>
                     <td class="p-3 border text-center text-blue-600">${hard}</td>
                     <td class="p-3 border text-center text-purple-600">${soft}</td>
@@ -2313,6 +2439,21 @@
 
       const GRADE_WARNA = { A: "#00A693", B: "#3b82f6", C: "#f59e0b", D: "#f97316", E: "#dc2626" };
 
+      // Supaya grafik tidak pernah tampil kosong-melompong sebelum ada data
+      // (kesan "belum siap"), kalau memang belum ada riwayat penilaian sama
+      // sekali, kerangka sumbu tetap digambar pakai beberapa label periode di
+      // sekitar periode aktif, dengan nilai null (tidak digambar titik/garis,
+      // dan tooltip otomatis tidak muncul di titik kosong).
+      function _placeholderPeriodeSet_() {
+        const thNow = Number(document.getElementById("tahunFilter").value) || new Date().getFullYear();
+        return [
+          `Semester 1 ${thNow - 1}`,
+          `Semester 2 ${thNow - 1}`,
+          `Semester 1 ${thNow}`,
+          `Semester 2 ${thNow}`,
+        ];
+      }
+
       async function muatGrafikPerorangan() {
         const nik = document.getElementById("grafikOrangSelector").value;
         if (!nik) return;
@@ -2323,11 +2464,18 @@
         }
         const data = j.data || [];
         const staf = j.staf || {};
-        document.getElementById("grafikOrangInfo").innerText = data.length
-          ? `${staf.nama} -- ${staf.jabatan} (${staf.departemen}) -- ${data.length} periode tercatat`
-          : `${staf.nama || "Staf ini"} belum punya riwayat penilaian.`;
+        const kosong = data.length === 0;
+        document.getElementById("grafikOrangInfo").innerText = kosong
+          ? `${staf.nama || "Staf ini"} belum punya riwayat penilaian.`
+          : `${staf.nama} -- ${staf.jabatan} (${staf.departemen}) -- ${data.length} periode tercatat`;
 
-        const labels = data.map((d) => d.periode);
+        const labels = kosong ? _placeholderPeriodeSet_() : data.map((d) => d.periode);
+        const nilaiAkhir = kosong ? labels.map(() => null) : data.map((d) => d.nilaiAkhir);
+        const nilaiHard = kosong ? labels.map(() => null) : data.map((d) => d.nilaiHard);
+        const nilaiSoft = kosong ? labels.map(() => null) : data.map((d) => d.nilaiSoft);
+        const warnaTitik = kosong
+          ? labels.map(() => "#00A693")
+          : data.map((d) => GRADE_WARNA[d.grade] || "#00A693");
 
         if (chartOrangAkhir) chartOrangAkhir.destroy();
         chartOrangAkhir = new Chart(document.getElementById("chartOrangAkhir"), {
@@ -2337,12 +2485,13 @@
             datasets: [
               {
                 label: "Nilai Akhir",
-                data: data.map((d) => d.nilaiAkhir),
+                data: nilaiAkhir,
                 borderColor: "#00A693",
                 backgroundColor: "#00A69333",
                 tension: 0.3,
-                pointBackgroundColor: data.map((d) => GRADE_WARNA[d.grade] || "#00A693"),
-                pointRadius: 6,
+                pointBackgroundColor: warnaTitik,
+                pointRadius: kosong ? 0 : 6,
+                spanGaps: false,
               },
             ],
           },
@@ -2351,7 +2500,7 @@
             plugins: {
               tooltip: {
                 callbacks: {
-                  afterLabel: (ctx) => "Grade: " + (data[ctx.dataIndex].grade || "-"),
+                  afterLabel: (ctx) => (kosong ? "" : "Grade: " + (data[ctx.dataIndex].grade || "-")),
                 },
               },
             },
@@ -2364,8 +2513,8 @@
           data: {
             labels: labels,
             datasets: [
-              { label: "Hard Skill (70%)", data: data.map((d) => d.nilaiHard), backgroundColor: "#3b82f6" },
-              { label: "Soft Skill (30%)", data: data.map((d) => d.nilaiSoft), backgroundColor: "#a855f7" },
+              { label: "Hard Skill (70%)", data: nilaiHard, backgroundColor: "#3b82f6" },
+              { label: "Soft Skill (30%)", data: nilaiSoft, backgroundColor: "#a855f7" },
             ],
           },
           options: { scales: { y: { min: 0, max: 5 } } },
@@ -2378,9 +2527,12 @@
         const periode = `Semester ${sm} ${th}`;
         const j = await apiCall("getHasil", { periode: periode });
         const rows = (j && j.data) || [];
+        const kosong = rows.length === 0;
 
-        // getHasil sudah terfilter server sesuai hak akses (diri+bawahan / semua utk admin)
-        const labels = rows.map((r) => r.namaStaf);
+        const labels = kosong ? ["Belum ada data"] : rows.map((r) => r.namaStaf);
+        const nilai = kosong ? [null] : rows.map((r) => r.nilaiAkhir);
+        const warna = kosong ? ["#e5e7eb"] : rows.map((r) => GRADE_WARNA[r.grade] || "#00A693");
+
         if (chartTim) chartTim.destroy();
         chartTim = new Chart(document.getElementById("chartTim"), {
           type: "bar",
@@ -2389,8 +2541,8 @@
             datasets: [
               {
                 label: `Nilai Akhir -- ${periode}`,
-                data: rows.map((r) => r.nilaiAkhir),
-                backgroundColor: rows.map((r) => GRADE_WARNA[r.grade] || "#00A693"),
+                data: nilai,
+                backgroundColor: warna,
               },
             ],
           },
@@ -2425,7 +2577,9 @@
           return;
         }
         const entry = (j.data || []).find((d) => d.departemen === dept) || { tren: [] };
-        const labels = entry.tren.map((t) => t.periode);
+        const kosong = entry.tren.length === 0;
+        const labels = kosong ? _placeholderPeriodeSet_() : entry.tren.map((t) => t.periode);
+        const nilai = kosong ? labels.map(() => null) : entry.tren.map((t) => t.rataAkhir);
 
         if (chartDept) chartDept.destroy();
         chartDept = new Chart(document.getElementById("chartDept"), {
@@ -2435,11 +2589,12 @@
             datasets: [
               {
                 label: `Rata-rata Nilai Akhir -- ${dept}`,
-                data: entry.tren.map((t) => t.rataAkhir),
+                data: nilai,
                 borderColor: "#00A693",
                 backgroundColor: "#00A69333",
                 tension: 0.3,
-                pointRadius: 5,
+                pointRadius: kosong ? 0 : 5,
+                spanGaps: false,
               },
             ],
           },
@@ -2449,7 +2604,7 @@
               tooltip: {
                 callbacks: {
                   afterLabel: (ctx) =>
-                    "Jumlah staf dinilai: " + (entry.tren[ctx.dataIndex].jumlahStaf || 0),
+                    kosong ? "" : "Jumlah staf dinilai: " + (entry.tren[ctx.dataIndex].jumlahStaf || 0),
                 },
               },
             },
@@ -2506,7 +2661,15 @@
           .map((a) => {
             const waktu = a.ts ? new Date(a.ts).toLocaleString("id-ID", { hour12: false }) : "-";
             const label = AKSI_LABEL[a.aksi] || a.aksi || "-";
-            return `<div class="border-b border-gray-100 pb-1">[${waktu}] <b>${_escHtml(a.oleh)} (${_escHtml(a.jabatan)})</b>: ${label} &rarr; ${a.statusBaru}${a.alasan ? " -- alasan: " + _escHtml(a.alasan) : ""}</div>`;
+            const alasanBlok = a.alasan
+              ? `<div style="padding-left:10px;margin-top:2px;border-left:2px solid #99f6e4;color:#64748b;font-style:italic;">&ldquo;${_escHtml(a.alasan)}&rdquo;</div>`
+              : "";
+            return (
+              `<div style="border-bottom:1px solid #f3f4f6;padding-bottom:4px;margin-bottom:4px;">` +
+              `<div>[${waktu}] <b>${_escHtml(a.oleh)} (${_escHtml(a.jabatan)})</b>: ${label} &rarr; ${a.statusBaru}</div>` +
+              alasanBlok +
+              `</div>`
+            );
           })
           .join("");
 
