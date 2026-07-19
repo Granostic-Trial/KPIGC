@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <style>
       .nav-btn.active {
         background-color: #00a693;
@@ -118,44 +118,79 @@
     <!-- HALAMAN LOGIN -->
     <div
       id="loginView"
-      class="min-h-screen w-full flex items-center justify-center p-4 fixed z-50 bg-[#f0f4f8]"
+      class="min-h-screen w-full flex items-center justify-center p-4 fixed z-50 bg-[#f0f4f8] overflow-y-auto"
     >
       <div
-        class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border-t-8 border-[#00A693] text-center"
+        class="w-full max-w-5xl flex flex-col md:flex-row items-stretch gap-6 my-8"
       >
-        <img
-          src="https://lh3.googleusercontent.com/d/13fYVo8GG4_R75m5fcqNieWpTnePyB0cb"
-          alt="Granostic Logo"
-          class="mx-auto h-16 mb-4 object-contain"
-        />
-        <p class="text-sm text-gray-500 mb-6 font-semibold">
-          Portal Penilaian Kinerja Karyawan (KPI)
-        </p>
-        <form id="loginForm" class="space-y-4 text-left">
-          <input
-            type="email"
-            id="email"
-            required
-            placeholder="Email Kerja"
-            autocomplete="off"
-            class="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
+        <!-- PANEL FORM LOGIN -->
+        <div
+          class="bg-white p-8 rounded-2xl shadow-xl w-full md:w-[380px] md:flex-shrink-0 border-t-8 border-[#00A693] text-center flex flex-col justify-center"
+        >
+          <img
+            src="https://lh3.googleusercontent.com/d/13fYVo8GG4_R75m5fcqNieWpTnePyB0cb"
+            alt="Granostic Logo"
+            class="mx-auto h-16 mb-4 object-contain"
           />
-          <input
-            type="password"
-            id="pass"
-            required
-            placeholder="Kata Sandi"
-            autocomplete="off"
-            class="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
+          <p class="text-sm text-gray-500 mb-6 font-semibold">
+            Portal Penilaian Kinerja Karyawan (KPI)
+          </p>
+          <form id="loginForm" class="space-y-4 text-left">
+            <input
+              type="email"
+              id="email"
+              required
+              placeholder="Email Kerja"
+              autocomplete="off"
+              class="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
+            />
+            <input
+              type="password"
+              id="pass"
+              required
+              placeholder="Kata Sandi"
+              autocomplete="off"
+              class="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
+            />
+            <button
+              type="submit"
+              id="btnLogin"
+              class="w-full bg-[#00A693] text-white p-3 rounded-lg font-bold hover:bg-teal-700 transition"
+            >
+              Masuk Sistem
+            </button>
+          </form>
+        </div>
+
+        <!-- PANEL VISI-MISI & SLIDE OTOMATIS -->
+        <div
+          class="relative w-full flex-1 rounded-2xl shadow-xl overflow-hidden flex flex-col justify-center p-8 md:p-10 text-white"
+          style="background: linear-gradient(135deg, #00A693 0%, #0b6e60 100%);"
+        >
+          <!-- Aksen dekoratif -->
+          <div
+            class="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/10"
+          ></div>
+          <div
+            class="absolute -left-8 -bottom-8 w-32 h-32 rounded-full bg-white/10"
+          ></div>
+
+          <img
+            src="https://lh3.googleusercontent.com/d/13fYVo8GG4_R75m5fcqNieWpTnePyB0cb"
+            alt="Granostic"
+            class="h-8 mb-6 object-contain opacity-90 relative z-10"
           />
-          <button
-            type="submit"
-            id="btnLogin"
-            class="w-full bg-[#00A693] text-white p-3 rounded-lg font-bold hover:bg-teal-700 transition"
-          >
-            Masuk Sistem
-          </button>
-        </form>
+
+          <div
+            id="loginCarouselTrack"
+            class="relative min-h-[190px] md:min-h-[150px] z-10"
+          ></div>
+
+          <div
+            id="loginCarouselDots"
+            class="flex gap-2 mt-8 relative z-10"
+          ></div>
+        </div>
       </div>
     </div>
 
@@ -1141,7 +1176,141 @@
 
       window.onload = function () {
         document.getElementById("btnLogin").innerText = "Masuk Sistem";
+        initLoginCarousel();
       };
+
+      /* ==================== PANEL VISI-MISI & SLIDE LOGIN ====================
+         Slide berganti otomatis tiap 8 detik (fade in/out). Berisi: 1 kartu
+         Visi, beberapa kartu Misi (1 poin per kartu), dan -- HANYA kalau
+         tanggal hari ini jatuh di 21-30 Juni atau 21-31 Desember -- 1 kartu
+         tambahan "Pengingat Musiman" yang tahun & nama semesternya dihitung
+         otomatis dari tanggal perangkat (bukan ditulis manual), jadi berlaku
+         abadi setiap tahun tanpa perlu update kode. */
+
+      const VISI_GRANOSTIC =
+        "Menjadi nilai tambah dan pembeda dalam pelayanan laboratorium terbaik di Indonesia";
+
+      const MISI_GRANOSTIC = [
+        "Memberikan pelayanan yang profesional, hasil pemeriksaan yang akurat dan terpercaya, dan didukung oleh perkembangan kemajuan ilmu pengetahuan dan teknologi.",
+        "Digitalisasi layanan dengan menggunakan digital platform.",
+        "Mengembangkan jaringan kerjasama dan produk-produk terbaru.",
+        "Menjadi pusat pelayanan dan diagnosa nyeri yang modern dan terkini.",
+      ];
+
+      // Variasi kalimat pembuka pengingat musiman -- dipilih acak tiap halaman
+      // dimuat, supaya tidak itu-itu saja tiap tahun. Tambahkan kalimat baru
+      // di sini kapan saja kalau ingin variasinya lebih banyak.
+      const PEMBUKA_PENGINGAT_MUSIMAN = [
+        "Jangan terlewat ya!",
+        "Bagi pimpinan PT. PMU!",
+        "Hai, leaders!",
+        "Hai, leaders Granostic Center!",
+      ];
+
+      // Mengembalikan { semester: 'I'|'II', bulanNama, tglAwal, tglAkhir, tahun }
+      // kalau HARI INI jatuh di jendela pengingat, atau null kalau tidak.
+      // Dihitung murni dari tanggal perangkat -- tidak ada tahun yang di-hardcode,
+      // jadi otomatis berlaku setiap tahun selamanya.
+      function _cekJendelaPengingatMusiman_() {
+        const now = new Date();
+        const tgl = now.getDate();
+        const bulan = now.getMonth(); // 0 = Januari ... 5 = Juni, 11 = Desember
+        const tahun = now.getFullYear();
+
+        if (bulan === 5 && tgl >= 21 && tgl <= 30) {
+          return { semester: "I", bulanNama: "Juni", tglAwal: 21, tglAkhir: 30, tahun };
+        }
+        if (bulan === 11 && tgl >= 21 && tgl <= 31) {
+          return { semester: "II", bulanNama: "Desember", tglAwal: 21, tglAkhir: 31, tahun };
+        }
+        return null;
+      }
+
+      function _susunSlideLoginPage_() {
+        const slides = [
+          { label: "VISI KAMI", body: VISI_GRANOSTIC },
+          ...MISI_GRANOSTIC.map((m, i) => ({
+            label: `MISI ${i + 1}/${MISI_GRANOSTIC.length}`,
+            body: m,
+          })),
+        ];
+
+        const jendela = _cekJendelaPengingatMusiman_();
+        if (jendela) {
+          const pembuka =
+            PEMBUKA_PENGINGAT_MUSIMAN[
+              Math.floor(Math.random() * PEMBUKA_PENGINGAT_MUSIMAN.length)
+            ];
+          slides.push({
+            label: "📅 PENGINGAT",
+            body: `${pembuka} Segera lengkapi KPI Semester ${jendela.semester} tim Anda pada tanggal ${jendela.tglAwal}-${jendela.tglAkhir} ${jendela.bulanNama} ${jendela.tahun}!`,
+          });
+        }
+        return slides;
+      }
+
+      let _loginSlideList = [];
+      let _loginSlideIdx = 0;
+      let _loginSlideTimer = null;
+
+      function initLoginCarousel() {
+        _loginSlideList = _susunSlideLoginPage_();
+        _loginSlideIdx = 0;
+
+        const track = document.getElementById("loginCarouselTrack");
+        const dotsWrap = document.getElementById("loginCarouselDots");
+        if (!track || !dotsWrap) return;
+
+        track.innerHTML = _loginSlideList
+          .map(
+            (s, i) => `
+          <div
+            class="login-slide absolute inset-0 flex flex-col justify-center transition-opacity duration-700 ease-in-out ${
+              i === 0 ? "opacity-100" : "opacity-0 pointer-events-none"
+            }"
+          >
+            <div class="text-xs font-black tracking-widest text-white/70 mb-2 uppercase">${s.label}</div>
+            <div class="text-base md:text-lg font-bold leading-relaxed">${s.body}</div>
+          </div>`
+          )
+          .join("");
+
+        dotsWrap.innerHTML = _loginSlideList
+          .map(
+            (_, i) =>
+              `<span class="w-2 h-2 rounded-full transition ${
+                i === 0 ? "bg-white" : "bg-white/40"
+              }" data-dot="${i}"></span>`
+          )
+          .join("");
+
+        if (_loginSlideTimer) clearInterval(_loginSlideTimer);
+        if (_loginSlideList.length > 1) {
+          _loginSlideTimer = setInterval(_gotoSlideLoginBerikutnya_, 8000);
+        }
+      }
+
+      function _gotoSlideLoginBerikutnya_() {
+        if (!_loginSlideList.length) return;
+        const track = document.getElementById("loginCarouselTrack");
+        const dotsWrap = document.getElementById("loginCarouselDots");
+        if (!track || !dotsWrap) return;
+
+        const slideEls = track.querySelectorAll(".login-slide");
+        const dotEls = dotsWrap.querySelectorAll("[data-dot]");
+
+        slideEls[_loginSlideIdx].classList.remove("opacity-100");
+        slideEls[_loginSlideIdx].classList.add("opacity-0", "pointer-events-none");
+        dotEls[_loginSlideIdx].classList.remove("bg-white");
+        dotEls[_loginSlideIdx].classList.add("bg-white/40");
+
+        _loginSlideIdx = (_loginSlideIdx + 1) % _loginSlideList.length;
+
+        slideEls[_loginSlideIdx].classList.remove("opacity-0", "pointer-events-none");
+        slideEls[_loginSlideIdx].classList.add("opacity-100");
+        dotEls[_loginSlideIdx].classList.remove("bg-white/40");
+        dotEls[_loginSlideIdx].classList.add("bg-white");
+      }
 
       function getTimestamp() {
         const now = new Date();
@@ -1312,6 +1481,7 @@
               currentUser = j.user;
               btn.innerText = "Memuat data...";
               await loadMasterData();
+              if (_loginSlideTimer) clearInterval(_loginSlideTimer);
               document.getElementById("loginView").classList.add("hidden");
               document.getElementById("mainView").classList.remove("hidden");
               document.getElementById("loggedUserName").innerText =
@@ -1351,6 +1521,9 @@
       const DAFTAR_SAPAAN = [
         "Hai, {nama}!",
         "Halo, {nama}!",
+        "Senang melihatmu, {nama}!",
+        "Bertemu kembali, {nama}!",
+        "Semangat, {nama}!",
         "Selamat datang, {nama}!",
         "Berjumpa kembali, {nama}!",
       ];
@@ -1383,6 +1556,10 @@
         "Setiap kontribusi memiliki arti. Mari terus bergerak maju bersama.",
         "Mulai hari dengan tujuan yang jelas, akhiri dengan pencapaian yang membanggakan.",
         "Kinerja terbaik lahir dari komitmen yang dijaga setiap hari.",
+        "Seimbangkan doa dan usaha untuk meraih tujuan bersama.",
+        "Granostic, Yes!.",
+        "Bekerjalah dengan hati dan hati-hati.",
+        "Mari membangun budaya kerja yang benar, baik, suportif, dan objektif.",
         "Bersama kita membangun hasil, bersama kita menciptakan perubahan.",
         "Semoga hari ini menjadi hari yang produktif, positif, dan penuh pencapaian.",
       ];
@@ -2554,18 +2731,36 @@
         });
       }
 
-      function populateGrafikDeptDropdown() {
+      async function populateGrafikDeptDropdown() {
         const sel = document.getElementById("grafikDeptSelector");
-        const accLevel = getAccessLevel(currentUser);
-        const isAdmin = accLevel === "SUPER_ADMIN" || accLevel === "ARCHIVE_ADMIN";
-        sel.innerHTML = "";
-        if (isAdmin) {
-          const depts = [...new Set(MOCK_KARYAWAN.map((k) => (k.departemen || "").trim()).filter(Boolean))].sort();
-          depts.forEach((d) => (sel.innerHTML += `<option value="${d}">${d}</option>`));
-          sel.disabled = false;
-        } else {
-          sel.innerHTML = `<option value="${currentUser.departemen}">${currentUser.departemen}</option>`;
-          sel.disabled = true; // non-admin cuma boleh lihat departemennya sendiri
+        sel.innerHTML = `<option value="">Memuat...</option>`;
+        sel.disabled = true;
+
+        try {
+          // Panggil server TANPA parameter departemen -- server yang menentukan
+          // daftar departemen yang BOLEH dilihat pemanggil ini, ditelusuri
+          // berjenjang dari bawahannya (bukan sekadar field Departemen tunggal
+          // di profilnya). Ini yang memperbaiki kasus manager lintas-departemen
+          // seperti Lab & Cln Manager (Clinic + Laboratory) dan Sales &
+          // Marketing Manager (Sales & Marketing + Customer Service).
+          const j = await apiPost({ action: "getGrafikDepartemen" });
+          const depts = (j && j.ok && j.departemenList) || [];
+          sel.innerHTML = "";
+          if (!depts.length) {
+            sel.innerHTML = `<option value="">-- Tidak ada departemen --</option>`;
+            return;
+          }
+          depts
+            .slice()
+            .sort()
+            .forEach((d) => (sel.innerHTML += `<option value="${d}">${d}</option>`));
+          // Kalau cuma ada 1 pilihan (staf/SPV biasa), kunci dropdown -- tidak ada
+          // gunanya bisa diganti. Kalau lebih dari 1 (admin, atau manager
+          // lintas-departemen), tetap bisa dipilih bebas.
+          sel.disabled = depts.length <= 1;
+          muatGrafikDepartemen();
+        } catch (e) {
+          sel.innerHTML = `<option value="">Gagal memuat daftar departemen</option>`;
         }
       }
 
