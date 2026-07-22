@@ -256,7 +256,7 @@
           </button>
         </div>
         <button
-          onclick="window.location.reload()"
+          onclick="logoutUser()"
           type="button"
           class="mt-auto bg-red-600/20 text-red-400 p-2 rounded-lg text-sm font-bold hover:bg-red-600/40 transition"
         >
@@ -407,9 +407,32 @@
               class="hidden no-print bg-amber-50 text-amber-800 text-xs p-3 rounded-lg border border-amber-200 font-semibold"
             >
               📝 Menunggu Anda meninjau &amp; mengonfirmasi penilaian ini. Silakan
-              periksa rincian skor di bawah, lalu klik <b>"Setuju"</b> kalau
-              sudah sesuai, atau <b>"Ajukan Keberatan"</b> kalau menurut Anda
-              ada yang perlu ditinjau ulang.
+              periksa rincian skor di bawah, lalu centang kotak persetujuan di
+              bawah kalau sudah sesuai, atau klik <b>"Ajukan Keberatan"</b>
+              kalau menurut Anda ada yang perlu ditinjau ulang.
+            </div>
+
+            <!-- Kotak konfirmasi persetujuan staf (bug #4 dilaporkan Doel):
+                 dulu cuma tombol "Setuju", sekarang benar-benar checkbox
+                 dengan kalimat konfirmasi eksplisit. Begitu dicentang, aksi
+                 'konfirmasi_staf' langsung dikirim -- ini yang mengisi kolom
+                 ttd "Yang Bersangkutan" yang tadinya kosong. -->
+            <div
+              id="checkboxKonfirmasiWrap"
+              class="hidden no-print bg-emerald-50 border border-emerald-300 rounded-lg p-3 flex items-start gap-3"
+            >
+              <input
+                type="checkbox"
+                id="chkKonfirmasiStaf"
+                class="w-5 h-5 mt-0.5 accent-emerald-600 cursor-pointer flex-shrink-0"
+              />
+              <label
+                for="chkKonfirmasiStaf"
+                class="text-xs font-bold text-emerald-800 cursor-pointer select-none leading-relaxed"
+              >
+                Ya, Saya <span id="namaKonfirmasiStaf">...</span>, menyetujui
+                penilaian ini.
+              </label>
             </div>
 
             <div
@@ -779,13 +802,6 @@
                     class="hidden bg-blue-600 text-white px-4 py-2 rounded font-bold text-xs hover:bg-blue-700 transition shadow-sm"
                   >
                     📤 Ajukan
-                  </button>
-                  <button
-                    id="btnKonfirmasiStaf"
-                    onclick="kirimAksi('konfirmasi_staf')"
-                    class="hidden bg-emerald-600 text-white px-4 py-2 rounded font-bold text-xs hover:bg-emerald-700 transition shadow-sm"
-                  >
-                    👍 Setuju, Ini Sudah Benar
                   </button>
                   <button
                     id="btnKeberatanStaf"
@@ -1186,6 +1202,115 @@
         ok: true,
       };
 
+      // ==================== PERSISTENSI SESI (bug #6 dilaporkan Doel) ====================
+      // Dulu authToken/currentUser cuma variabel JS di memori -- begitu halaman
+      // di-refresh, keduanya hilang total dan pengguna terpaksa login ulang
+      // (bahkan kalau sedang di tengah-tengah menilai). Sekarang token+profil
+      // disimpan di localStorage (bertahan lewat refresh/tutup-buka tab) dan
+      // dicoba dipulihkan begitu halaman dibuka -- token tetap divalidasi ulang
+      // ke server (bukan cuma dipercaya mentah dari localStorage), jadi kalau
+      // sesi sudah kedaluwarsa di server (CacheService, maks 6 jam), pengguna
+      // tetap diarahkan ke layar login seperti biasa.
+      var KPI_LS_TOKEN = "kpiPortalAuthToken";
+      var KPI_LS_USER = "kpiPortalCurrentUser";
+
+      function _simpanSesiKeStorage() {
+        try {
+          localStorage.setItem(KPI_LS_TOKEN, authToken || "");
+          localStorage.setItem(KPI_LS_USER, JSON.stringify(currentUser || null));
+        } catch (e) {
+          // localStorage tidak tersedia (mis. mode private ketat) -- diamkan,
+          // aplikasi tetap jalan seperti sebelumnya (cuma tanpa persist).
+        }
+      }
+
+      function _hapusSesiTersimpan() {
+        try {
+          localStorage.removeItem(KPI_LS_TOKEN);
+          localStorage.removeItem(KPI_LS_USER);
+        } catch (e) {}
+      }
+
+      // Dipanggil sekali di window.onload. Kalau ada token+user tersimpan,
+      // validasi ke server (panggilan ringan getKaryawan). Kalau server bilang
+      // token masih hidup, pulihkan authToken/currentUser & masuk langsung ke
+      // halaman utama TANPA layar login. Kalau tidak ada / tidak valid, bersihkan
+      // storage dan biarkan alur login normal berjalan.
+      async function cobaPulihkanSesi() {
+        var savedToken = "";
+        var savedUserRaw = "";
+        try {
+          savedToken = localStorage.getItem(KPI_LS_TOKEN) || "";
+          savedUserRaw = localStorage.getItem(KPI_LS_USER) || "";
+        } catch (e) {
+          return false;
+        }
+        if (!savedToken || !savedUserRaw) return false;
+
+        try {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({ action: "getKaryawan", token: savedToken }),
+          });
+          const j = await res.json();
+          if (!j || !j.ok) {
+            _hapusSesiTersimpan();
+            return false;
+          }
+          authToken = savedToken;
+          currentUser = JSON.parse(savedUserRaw);
+          MOCK_KARYAWAN = j.data || [];
+          return true;
+        } catch (e) {
+          // Gagal hubungi server (mis. offline sesaat) -- jangan hapus storage,
+          // biar dicoba lagi lain kali; untuk sekarang jatuh ke layar login.
+          return false;
+        }
+      }
+
+      // Bagian tampilan setelah berhasil login/pulih sesi (dulu inline di dalam
+      // handler submit form login -- dipisah jadi fungsi supaya bisa dipakai
+      // ulang oleh alur pulih-sesi-otomatis di window.onload).
+      async function tampilkanAplikasiUtama(opts) {
+        opts = opts || {};
+        if (_loginSlideTimer) clearInterval(_loginSlideTimer);
+        document.getElementById("loginView").classList.add("hidden");
+        document.getElementById("mainView").classList.remove("hidden");
+        document.getElementById("loggedUserName").innerText = currentUser.nama;
+        document.getElementById("userRoleBadge").innerText = currentUser.jabatan;
+        populateTahunSemester();
+        populateStafDropdown();
+        applyNavVisibility();
+        if (currentUser.mustChange) {
+          openGantiPassword(true);
+        } else if (!opts.silent) {
+          tampilkanSapaanLogin();
+        }
+        cekKonfirmasiPending();
+      }
+
+      async function logoutUser() {
+        // Beri tahu server supaya token langsung dicabut (bukan menunggu
+        // kedaluwarsa otomatis 6 jam) -- dibungkus try/catch & TANPA lewat
+        // apiCall/_post biasa supaya kalaupun token kebetulan sudah tidak
+        // valid, tidak memicu alert "Sesi berakhir" yang membingungkan saat
+        // pengguna memang SEDANG SENGAJA logout.
+        try {
+          if (authToken) {
+            await fetch(API_URL, {
+              method: "POST",
+              headers: { "Content-Type": "text/plain;charset=utf-8" },
+              body: JSON.stringify({ action: "logout", token: authToken }),
+            });
+          }
+        } catch (e) {
+          // abaikan -- yang penting sesi lokal tetap dibersihkan
+        }
+        _hapusSesiTersimpan();
+        window.location.reload();
+      }
+
       async function apiCall(action, extra) {
         return await _post(Object.assign({ action: action, token: authToken }, extra || {}));
       }
@@ -1223,8 +1348,18 @@
         MOCK_STRUKTUR = (rS && rS.data) || [];
       }
 
-      window.onload = function () {
+      window.onload = async function () {
         document.getElementById("btnLogin").innerText = "Masuk Sistem";
+        try {
+          const pulih = await cobaPulihkanSesi();
+          if (pulih) {
+            await loadMasterData();
+            await tampilkanAplikasiUtama({ silent: true });
+            return; // berhasil pulih -- tidak perlu tampilkan layar login sama sekali
+          }
+        } catch (e) {
+          // gagal pulih sesi -- lanjut ke layar login normal seperti biasa
+        }
         initLoginCarousel();
       };
 
@@ -1461,6 +1596,12 @@
           (k) => (k.jabatan || "").toLowerCase().trim() === "hrga & it manager"
         ) || { nama: "-", jabatan: "HRGA & IT Manager", email: "" };
 
+        // Level staf/SPV disahkan oleh DIREKTUR (bukan Direktur Utama). Kalau
+        // posisi "Direktur" belum ada di Master_User, jatuh kembali ke
+        // Direktur Utama supaya rantai tidak nihil. HARUS sama persis dengan
+        // direkturUntukStaf di resolveChain_ (Code.gs).
+        const direkturUntukStaf = direktur.email ? direktur : dirUtama;
+
         function samaOrang(a, b) {
           return !!(a && b && a.email && b.email && a.email.toLowerCase() === b.email.toLowerCase());
         }
@@ -1519,17 +1660,19 @@
             verif1Dilewati = true;
             if (atasanIsHr) {
               // Skenario 2: atasannya persis HRGA & IT Manager -> Verif2 & Sahkan naik ke Direktur.
-              verif2 = direktur;
-              sahkan = direktur;
+              verif2 = direkturUntukStaf;
+              sahkan = direkturUntukStaf;
             } else {
               // Skenario 1: atasannya manager biasa -> lanjut normal.
+              // Tetap level staf -> disahkan Direktur (bukan Direktur Utama).
               verif2 = hr;
-              sahkan = dirUtama;
+              sahkan = direkturUntukStaf;
             }
           } else {
+            // Jalur normal -- tetap level staf -> disahkan Direktur.
             verif1 = verif1Calon;
             verif2 = hr;
-            sahkan = dirUtama;
+            sahkan = direkturUntukStaf;
           }
         } else {
           verif1 = { nama: "-", jabatan: "-", email: "" };
@@ -1566,24 +1709,10 @@
             if (j.ok && j.user) {
               authToken = j.token;
               currentUser = j.user;
+              _simpanSesiKeStorage();
               btn.innerText = "Memuat data...";
               await loadMasterData();
-              if (_loginSlideTimer) clearInterval(_loginSlideTimer);
-              document.getElementById("loginView").classList.add("hidden");
-              document.getElementById("mainView").classList.remove("hidden");
-              document.getElementById("loggedUserName").innerText =
-                currentUser.nama;
-              document.getElementById("userRoleBadge").innerText =
-                currentUser.jabatan;
-              populateTahunSemester();
-              populateStafDropdown();
-              applyNavVisibility();
-              if (currentUser.mustChange) {
-                openGantiPassword(true);
-              } else {
-                tampilkanSapaanLogin();
-              }
-              cekKonfirmasiPending();
+              await tampilkanAplikasiUtama();
             } else {
               alert(j.error || "Email atau Password salah!");
             }
@@ -2371,7 +2500,6 @@
           {
             simpan: "btnSimpan",
             ajukan: "btnAjukan",
-            konfirmasi_staf: "btnKonfirmasiStaf",
             keberatan_staf: "btnKeberatanStaf",
             keputusan_hr_lanjut: "btnKeputusanLanjut",
             keputusan_hr_kembali: "btnKeputusanKembali",
@@ -2411,6 +2539,43 @@
         }
       }
 
+      // Checkbox konfirmasi persetujuan staf (bug #4 dilaporkan Doel): begitu
+      // dicentang, langsung kirim aksi 'konfirmasi_staf' (sama seperti dulu
+      // tombol "Setuju" bekerja) -- tidak perlu tombol kirim terpisah. Kalau
+      // gagal (mis. sesi berakhir / dokumen sudah diproses pihak lain),
+      // centang dikembalikan ke kosong supaya staf bisa coba lagi.
+      (function () {
+        const chk = document.getElementById("chkKonfirmasiStaf");
+        if (!chk) return;
+        chk.addEventListener("change", async (e) => {
+          if (!e.target.checked) return;
+          const namaStaf = (currentUser && currentUser.nama) || "Anda";
+          const yakin = confirm(
+            'Dengan mencentang ini, Anda menyatakan: "Ya, Saya ' + namaStaf +
+            ', menyetujui penilaian ini." Lanjutkan?'
+          );
+          if (!yakin) {
+            e.target.checked = false;
+            return;
+          }
+          e.target.disabled = true;
+          try {
+            await kirimAksi("konfirmasi_staf");
+          } finally {
+            // Kalau dokumen sudah pindah status, refreshActionButtons() (dipanggil
+            // dari muatHasilTersimpan di dalam kirimAksi) akan menyembunyikan &
+            // mereset (uncheck + enable) kotak ini sendiri lewat wrapKonfirmasi.
+            // Kalau aksi GAGAL dan wrapper-nya MASIH tampil, berarti status
+            // dokumen belum berubah -- kembalikan supaya staf bisa coba lagi.
+            const wrap = document.getElementById("checkboxKonfirmasiWrap");
+            if (wrap && !wrap.classList.contains("hidden")) {
+              chk.disabled = false;
+              chk.checked = false;
+            }
+          }
+        });
+      })();
+
       // Menampilkan tombol Ajukan/Verifikasi/Kembalikan/Sahkan HANYA kalau
       // (a) pengguna adalah pemegang peran yang tepat, DAN (b) dokumen sedang
       // di tahap yang sesuai untuk peran itu. Selaras dengan ACTION_DEFS di
@@ -2427,7 +2592,6 @@
 
         const visMap = {
           btnAjukan: editableStage && myNik === atasanNik && myNik !== "",
-          btnKonfirmasiStaf: status === "MENUNGGU_KONFIRMASI_STAF" && myNik === stafNik && myNik !== "",
           btnKeberatanStaf: status === "MENUNGGU_KONFIRMASI_STAF" && myNik === stafNik && myNik !== "",
           btnKeputusanLanjut: status === "ESKALASI_HR" && myNik === verif2Nik && myNik !== "",
           btnKeputusanKembali: status === "ESKALASI_HR" && myNik === verif2Nik && myNik !== "",
@@ -2449,6 +2613,19 @@
         document
           .getElementById("eskalasiAlert")
           .classList.toggle("hidden", !(status === "ESKALASI_HR" && myNik === verif2Nik));
+
+        // Kotak centang konfirmasi persetujuan (menggantikan tombol "Setuju").
+        const bisaKonfirmasi =
+          status === "MENUNGGU_KONFIRMASI_STAF" && myNik === stafNik && myNik !== "";
+        const wrapKonfirmasi = document.getElementById("checkboxKonfirmasiWrap");
+        if (wrapKonfirmasi) wrapKonfirmasi.classList.toggle("hidden", !bisaKonfirmasi);
+        const chkKonfirmasi = document.getElementById("chkKonfirmasiStaf");
+        if (chkKonfirmasi) {
+          chkKonfirmasi.checked = false;
+          chkKonfirmasi.disabled = false;
+        }
+        const namaSpan = document.getElementById("namaKonfirmasiStaf");
+        if (namaSpan) namaSpan.innerText = (currentUser && currentUser.nama) || "";
 
         const canEditNow = editableStage && myNik === atasanNik;
         const btnSimpanEl = document.getElementById("btnSimpan");
