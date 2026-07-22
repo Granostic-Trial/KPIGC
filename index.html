@@ -402,6 +402,25 @@
               untuk revisi.
             </div>
 
+            <div
+              id="konfirmasiAlert"
+              class="hidden no-print bg-amber-50 text-amber-800 text-xs p-3 rounded-lg border border-amber-200 font-semibold"
+            >
+              📝 Menunggu Anda meninjau &amp; mengonfirmasi penilaian ini. Silakan
+              periksa rincian skor di bawah, lalu klik <b>"Setuju"</b> kalau
+              sudah sesuai, atau <b>"Ajukan Keberatan"</b> kalau menurut Anda
+              ada yang perlu ditinjau ulang.
+            </div>
+
+            <div
+              id="eskalasiAlert"
+              class="hidden no-print bg-orange-50 text-orange-800 text-xs p-3 rounded-lg border border-orange-200 font-semibold"
+            >
+              ⚠️ Staf yang dinilai mengajukan <b>keberatan</b> atas penilaian
+              ini. Dokumen sedang menunggu keputusan penengah -- lihat alasan
+              keberatan di Audit Trail di bawah sebelum memutuskan.
+            </div>
+
             <!-- SECTION A: HARD SKILL -->
             <div class="space-y-2">
               <h3
@@ -642,9 +661,10 @@
                 <p class="font-semibold text-gray-500 mb-1">
                   Yang Bersangkutan
                 </p>
-                <img id="qrStaff" src="" class="w-14 h-14 border p-1 my-1" />
+                <img id="qrStaff" src="" class="w-14 h-14 border p-1 my-1 opacity-0 transition-opacity duration-300" />
                 <p class="font-bold underline mt-2" id="ttdStaff">...</p>
                 <p class="text-[9px] text-gray-500">Karyawan</p>
+                <p class="text-[8px] text-gray-400 italic" id="ttdStafKeterangan"></p>
               </div>
               <div class="w-1/5 flex flex-col items-center px-1">
                 <p class="font-semibold text-gray-500 mb-1">Dinilai Oleh</p>
@@ -658,7 +678,7 @@
                   Atasan Langsung
                 </p>
               </div>
-              <div class="w-1/5 flex flex-col items-center px-1">
+              <div class="w-1/5 flex flex-col items-center px-1" id="kolomVerif1">
                 <p class="font-semibold text-gray-500 mb-1">
                   Diverifikasi Oleh
                 </p>
@@ -759,6 +779,36 @@
                     class="hidden bg-blue-600 text-white px-4 py-2 rounded font-bold text-xs hover:bg-blue-700 transition shadow-sm"
                   >
                     📤 Ajukan
+                  </button>
+                  <button
+                    id="btnKonfirmasiStaf"
+                    onclick="kirimAksi('konfirmasi_staf')"
+                    class="hidden bg-emerald-600 text-white px-4 py-2 rounded font-bold text-xs hover:bg-emerald-700 transition shadow-sm"
+                  >
+                    👍 Setuju, Ini Sudah Benar
+                  </button>
+                  <button
+                    id="btnKeberatanStaf"
+                    onclick="kirimAksi('keberatan_staf')"
+                    class="hidden bg-orange-100 border border-orange-300 text-orange-700 px-4 py-2 rounded font-bold text-xs hover:bg-orange-200 transition shadow-sm"
+                    title="Ajukan keberatan -- akan diteruskan ke penengah untuk diputuskan (wajib isi alasan)"
+                  >
+                    ⚠️ Ajukan Keberatan
+                  </button>
+                  <button
+                    id="btnKeputusanLanjut"
+                    onclick="kirimAksi('keputusan_hr_lanjut')"
+                    class="hidden bg-teal-600 text-white px-4 py-2 rounded font-bold text-xs hover:bg-teal-700 transition shadow-sm"
+                  >
+                    ⚖️ Putuskan &amp; Lanjutkan
+                  </button>
+                  <button
+                    id="btnKeputusanKembali"
+                    onclick="kirimAksi('keputusan_hr_kembali')"
+                    class="hidden bg-rose-100 border border-rose-300 text-rose-700 px-4 py-2 rounded font-bold text-xs hover:bg-rose-200 transition shadow-sm"
+                    title="Kembalikan ke atasan penilai untuk direvisi (wajib isi alasan)"
+                  >
+                    ↩️ Kembalikan ke Atasan
                   </button>
                   <button
                     id="btnVerifikasi1"
@@ -1117,7 +1167,8 @@
       let chainAtasan = null,
         chainVerif1 = null,
         chainVerif2 = null,
-        chainSahkan = null;
+        chainSahkan = null,
+        chainVerif1Dilewati = false;
       let lastCalc = {
         sumHard: 0,
         propHard: 0,
@@ -1382,6 +1433,8 @@
       // Menyusun rantai persetujuan (atasan/verif1/verif2/sahkan) untuk satu staf.
       // HARUS identik dengan resolveChain_ di Code.gs supaya tombol yang tampil
       // di layar selalu konsisten dengan apa yang diizinkan server.
+      // HARUS identik dengan resolveChain_ di Code.gs (lihat komentar di sana
+      // untuk penjelasan 4 skenario dobel-ttd yang ditangani di sini).
       function resolveChainClient(stafEmail) {
         const emailLower = String(stafEmail || "").trim().toLowerCase();
         const staf = MOCK_KARYAWAN.find(
@@ -1408,35 +1461,75 @@
           (k) => (k.jabatan || "").toLowerCase().trim() === "hrga & it manager"
         ) || { nama: "-", jabatan: "HRGA & IT Manager", email: "" };
 
+        function samaOrang(a, b) {
+          return !!(a && b && a.email && b.email && a.email.toLowerCase() === b.email.toLowerCase());
+        }
+
         const role = (staf.role || "").toLowerCase().trim();
         let verif1 = { nama: "-", jabatan: "-", email: "" };
         let verif2 = hr;
         let sahkan = dirUtama;
+        let verif1Dilewati = false;
+        const atasanIsDirektur = samaOrang(atasan, direktur);
+        const atasanIsHr = samaOrang(atasan, hr);
 
         if (role === "manager") {
-          verif1 = direktur;
-          sahkan = dirUtama;
-          if (hr.email && staf.email && hr.email.toLowerCase() === staf.email.toLowerCase()) {
-            verif2 = direktur; // HR Manager tidak verifikasi dirinya sendiri
-          }
-        } else if (role === "supervisor") {
-          verif1 = atasan;
-        } else if (role === "staff") {
-          const atasanRole = (atasan.role || "").toLowerCase().trim();
-          if (atasanRole === "manager" || atasanRole === "direksi") {
-            verif1 = atasan;
+          if (atasanIsDirektur) {
+            // Skenario 3 & 4: manager (termasuk HR Manager sendiri) dinilai
+            // Direktur -> Verif1 dilewati, Verif2 & Sahkan naik ke Direktur Utama.
+            verif1 = { nama: "-", jabatan: "-", email: "" };
+            verif1Dilewati = true;
+            verif2 = dirUtama;
+            sahkan = dirUtama;
           } else {
-            const spvLink = MOCK_STRUKTUR.find(
-              (s) => (s.email_staf_dinilai || "").trim().toLowerCase() === atasanEmail
-            );
-            if (spvLink) {
-              verif1 =
-                MOCK_KARYAWAN.find(
-                  (k) =>
-                    (k.email || "").trim().toLowerCase() ===
-                    (spvLink.email_penilai || "").trim().toLowerCase()
-                ) || verif1;
+            verif1 = direktur;
+            verif2 = hr;
+            sahkan = dirUtama;
+            if (hr.email && staf.email && hr.email.toLowerCase() === staf.email.toLowerCase()) {
+              verif2 = direktur;
             }
+          }
+        } else if (role === "supervisor" || role === "staff") {
+          let verif1Calon = { nama: "-", jabatan: "-", email: "" };
+          if (role === "supervisor") {
+            verif1Calon = atasan;
+          } else {
+            const atasanRole = (atasan.role || "").toLowerCase().trim();
+            if (atasanRole === "manager" || atasanRole === "direksi") {
+              verif1Calon = atasan;
+            } else {
+              const spvLink = MOCK_STRUKTUR.find(
+                (s) => (s.email_staf_dinilai || "").trim().toLowerCase() === atasanEmail
+              );
+              if (spvLink) {
+                verif1Calon =
+                  MOCK_KARYAWAN.find(
+                    (k) =>
+                      (k.email || "").trim().toLowerCase() ===
+                      (spvLink.email_penilai || "").trim().toLowerCase()
+                  ) || verif1Calon;
+              }
+            }
+          }
+
+          if (samaOrang(verif1Calon, atasan)) {
+            // Skenario 1 & 2: calon Verif1 = Atasan (staf/SPV yang atasan
+            // langsungnya seorang Manager) -> Verif1 dilewati.
+            verif1 = { nama: "-", jabatan: "-", email: "" };
+            verif1Dilewati = true;
+            if (atasanIsHr) {
+              // Skenario 2: atasannya persis HRGA & IT Manager -> Verif2 & Sahkan naik ke Direktur.
+              verif2 = direktur;
+              sahkan = direktur;
+            } else {
+              // Skenario 1: atasannya manager biasa -> lanjut normal.
+              verif2 = hr;
+              sahkan = dirUtama;
+            }
+          } else {
+            verif1 = verif1Calon;
+            verif2 = hr;
+            sahkan = dirUtama;
           }
         } else {
           verif1 = { nama: "-", jabatan: "-", email: "" };
@@ -1444,16 +1537,12 @@
           sahkan = dirUtama;
         }
 
-        // ATURAN: Verif1 tidak boleh sama dengan Verif2 -> lempar ke Direktur
-        if (
-          verif1.email &&
-          verif2.email &&
-          verif1.email.toLowerCase() === verif2.email.toLowerCase()
-        ) {
+        // Pengaman terakhir (jaring pengaman tambahan)
+        if (verif1.email && verif2.email && verif1.email.toLowerCase() === verif2.email.toLowerCase()) {
           verif2 = direktur;
         }
 
-        return { staf: staf, atasan: atasan, verif1: verif1, verif2: verif2, sahkan: sahkan };
+        return { staf: staf, atasan: atasan, verif1: verif1, verif2: verif2, sahkan: sahkan, verif1Dilewati: verif1Dilewati };
       }
 
       document
@@ -1494,6 +1583,7 @@
               } else {
                 tampilkanSapaanLogin();
               }
+              cekKonfirmasiPending();
             } else {
               alert(j.error || "Email atau Password salah!");
             }
@@ -1510,6 +1600,44 @@
         const accLevel = getAccessLevel(currentUser);
         const boleh = accLevel === "SUPER_ADMIN" || accLevel === "ARCHIVE_ADMIN";
         document.getElementById("btn-arsip").classList.toggle("hidden", !boleh);
+      }
+
+      // Begitu login, cek apakah staf ini punya penilaian yang MENUNGGU
+      // KONFIRMASI dirinya (di periode berapa pun) -- kalau ada, langsung
+      // arahkan ke Lembar Penilaian miliknya sendiri supaya tidak perlu
+      // dicari manual lewat dropdown.
+      async function cekKonfirmasiPending() {
+        try {
+          const j = await apiCall("getHasil", {});
+          const rows = (j && j.data) || [];
+          const myNik = String(currentUser.nik || "").trim();
+          const pending = rows.find(
+            (r) => (r.nikStaf || "") === myNik && r.status === "MENUNGGU_KONFIRMASI_STAF"
+          );
+          if (!pending || !myNik) return;
+
+          const m = String(pending.periode || "").match(/Semester\s+(\d+)\s+(\d+)/i);
+          if (m) {
+            const semSel = document.getElementById("semesterFilter");
+            const thSel = document.getElementById("tahunFilter");
+            if (semSel) semSel.value = m[1];
+            if (thSel && Array.from(thSel.options).some((o) => o.value === m[2])) {
+              thSel.value = m[2];
+            }
+          }
+          switchMenu("penilaian");
+          const stafSel = document.getElementById("stafSelector");
+          if (stafSel) stafSel.value = myNik;
+          renderKPI();
+          setTimeout(() => {
+            alert(
+              "📝 Ada penilaian KPI Anda yang menunggu ditinjau & dikonfirmasi.\n\n" +
+              "Silakan periksa rincian skor di bawah, lalu klik \"Setuju\" atau \"Ajukan Keberatan\"."
+            );
+          }, 300);
+        } catch (e) {
+          // Diam-diam saja kalau gagal cek -- tidak boleh menghalangi proses login normal.
+        }
       }
 
       /* ==================== POP-UP SAPAAN + MOTIVASI SAAT LOGIN ====================
@@ -1694,6 +1822,7 @@
         chainVerif1 = verif1Obj;
         chainVerif2 = verif2Obj;
         chainSahkan = sahkanObj;
+        chainVerif1Dilewati = !!chain.verif1Dilewati;
 
         document.getElementById("ttdAtasan").innerText = atasanObj.nama;
         document.getElementById("ttdAtasanJabatan").innerText = atasanObj.jabatan;
@@ -1703,6 +1832,9 @@
         document.getElementById("ttdVerif2Jabatan").innerText = verif2Obj.jabatan;
         document.getElementById("ttdDisahkanNama").innerText = sahkanObj.nama;
         document.getElementById("ttdDisahkanJabatan").innerText = sahkanObj.jabatan;
+        // Kolom "Diverifikasi Oleh" (Verif1) disembunyikan di layar & cetakan
+        // kalau tahap ini dilewati (Verif1 = orang yang sama dengan Atasan Penilai).
+        document.getElementById("kolomVerif1").classList.toggle("hidden", chainVerif1Dilewati);
 
         const myNik = String(currentUser.nik || "").trim();
         const isSelf = String(staf.nik || "").trim() === myNik;
@@ -1835,6 +1967,11 @@
       const AKSI_LABEL = {
         simpan: "menyimpan draf nilai",
         ajukan: "mengajukan penilaian",
+        konfirmasi_staf: "menyetujui penilaian (Yang Bersangkutan)",
+        keberatan_staf: "mengajukan keberatan (Yang Bersangkutan)",
+        keputusan_hr_lanjut: "memutuskan melanjutkan penilaian (penengah)",
+        keputusan_hr_kembali: "mengembalikan ke atasan penilai (keputusan penengah)",
+        lewati_verif1: "tahap Verifikasi 1 dilewati otomatis",
         verifikasi1: "memverifikasi (tahap 1)",
         kembalikan1: "mengembalikan ke atasan penilai",
         verifikasi2: "memverifikasi HR (tahap 2)",
@@ -2109,33 +2246,48 @@
         return m;
       }
 
+      // Label keterangan status staf ("Yang Bersangkutan") -- ditampilkan kecil
+      // di bawah nama, supaya jelas apa yang sudah/belum dilakukan staf.
+      const STATUS_KETERANGAN_STAF = {
+        DRAFT: "",
+        DIBUKA_REVISI: "",
+        MENUNGGU_KONFIRMASI_STAF: "(Menunggu Konfirmasi)",
+        ESKALASI_HR: "(Mengajukan Keberatan)",
+        PENILAIAN_SELESAI: "(Telah Menyetujui)",
+        TERVERIFIKASI_ATASAN: "(Telah Menyetujui)",
+        TERVERIFIKASI_HR: "(Telah Menyetujui)",
+        DISAHKAN_DIREKSI: "(Telah Menyetujui)",
+      };
+
       function refreshQRCodes() {
-        const stat = currentDocumentStatus;
-        const els = ["qrAtasan", "qrVerif1", "qrVerif2", "qrDireksi"];
+        const stat = currentDocumentStatus || "DRAFT";
+        const els = ["qrStaff", "qrAtasan", "qrVerif1", "qrVerif2", "qrDireksi"];
         els.forEach((id) => {
           document.getElementById(id).classList.add("opacity-0");
         });
+        document.getElementById("ttdStafKeterangan").innerText =
+          STATUS_KETERANGAN_STAF[stat] || "";
 
-        if (stat === "DRAFT") return;
+        if (stat === "DRAFT" || stat === "DIBUKA_REVISI") return;
 
-        if (
-          stat.includes("PENILAIAN_SELESAI") ||
-          stat.includes("TERVERIFIKASI") ||
-          stat.includes("DISAHKAN")
-        )
-          document.getElementById("qrAtasan").classList.remove("opacity-0");
-        
-        if (
-          stat.includes("TERVERIFIKASI_ATASAN") ||
-          stat.includes("TERVERIFIKASI_MANAGER") ||
-          stat.includes("TERVERIFIKASI_HR") ||
-          stat.includes("DISAHKAN")
-        )
+        // Atasan: tampil begitu sudah mengajukan (status apa pun setelah DRAFT)
+        document.getElementById("qrAtasan").classList.remove("opacity-0");
+
+        // Yang Bersangkutan (Staf): tampil begitu staf sudah bertindak (Setuju
+        // ATAU Keberatan) -- bukan lagi menunggu di MENUNGGU_KONFIRMASI_STAF.
+        if (stat !== "MENUNGGU_KONFIRMASI_STAF") {
+          document.getElementById("qrStaff").classList.remove("opacity-0");
+        }
+
+        if (["TERVERIFIKASI_ATASAN", "TERVERIFIKASI_HR", "DISAHKAN_DIREKSI"].includes(stat)) {
           document.getElementById("qrVerif1").classList.remove("opacity-0");
-        if (stat.includes("TERVERIFIKASI_HR") || stat.includes("DISAHKAN"))
+        }
+        if (["TERVERIFIKASI_HR", "DISAHKAN_DIREKSI"].includes(stat)) {
           document.getElementById("qrVerif2").classList.remove("opacity-0");
-        if (stat.includes("DISAHKAN"))
+        }
+        if (stat === "DISAHKAN_DIREKSI") {
           document.getElementById("qrDireksi").classList.remove("opacity-0");
+        }
       }
 
       // Peta aksi -> status resmi & pesan. HARUS sinkron dengan ACTION_DEFS di Code.gs.
@@ -2149,6 +2301,10 @@
         sahkan:      { successMsg: "Dokumen berhasil disahkan." },
         kembalikan3: { successMsg: "Dikembalikan ke Verifikator HR.", wajibAlasan: true },
         bukaKunci:   { successMsg: "Dokumen dibuka untuk revisi.", wajibAlasan: true, konfirmasiKhusus: true },
+        konfirmasi_staf:     { successMsg: "Terima kasih, konfirmasi Anda sudah tercatat." },
+        keberatan_staf:      { successMsg: "Keberatan Anda sudah diteruskan ke penengah untuk diputuskan.", wajibAlasan: true },
+        keputusan_hr_lanjut: { successMsg: "Keputusan tercatat: penilaian dilanjutkan." },
+        keputusan_hr_kembali:{ successMsg: "Dikembalikan ke atasan penilai untuk direvisi.", wajibAlasan: true },
       };
 
       // Satu fungsi terpadu untuk SEMUA aksi (simpan/ajukan/verifikasi/kembalikan/
@@ -2215,6 +2371,10 @@
           {
             simpan: "btnSimpan",
             ajukan: "btnAjukan",
+            konfirmasi_staf: "btnKonfirmasiStaf",
+            keberatan_staf: "btnKeberatanStaf",
+            keputusan_hr_lanjut: "btnKeputusanLanjut",
+            keputusan_hr_kembali: "btnKeputusanKembali",
             verifikasi1: "btnVerifikasi1",
             kembalikan1: "btnKembalikan1",
             verifikasi2: "btnVerifikasi2",
@@ -2262,10 +2422,15 @@
         const verif1Nik = String((chainVerif1 && chainVerif1.nik) || "").trim();
         const verif2Nik = String((chainVerif2 && chainVerif2.nik) || "").trim();
         const sahkanNik = String((chainSahkan && chainSahkan.nik) || "").trim();
+        const stafNik = String((currentStaf && currentStaf.nik) || "").trim();
         const editableStage = status === "DRAFT" || status === "DIBUKA_REVISI";
 
         const visMap = {
           btnAjukan: editableStage && myNik === atasanNik && myNik !== "",
+          btnKonfirmasiStaf: status === "MENUNGGU_KONFIRMASI_STAF" && myNik === stafNik && myNik !== "",
+          btnKeberatanStaf: status === "MENUNGGU_KONFIRMASI_STAF" && myNik === stafNik && myNik !== "",
+          btnKeputusanLanjut: status === "ESKALASI_HR" && myNik === verif2Nik && myNik !== "",
+          btnKeputusanKembali: status === "ESKALASI_HR" && myNik === verif2Nik && myNik !== "",
           btnVerifikasi1: status === "PENILAIAN_SELESAI" && myNik === verif1Nik,
           btnKembalikan1: status === "PENILAIAN_SELESAI" && myNik === verif1Nik,
           btnVerifikasi2: status === "TERVERIFIKASI_ATASAN" && myNik === verif2Nik,
@@ -2277,6 +2442,13 @@
           const el = document.getElementById(id);
           if (el) el.classList.toggle("hidden", !visMap[id]);
         });
+
+        document
+          .getElementById("konfirmasiAlert")
+          .classList.toggle("hidden", !(status === "MENUNGGU_KONFIRMASI_STAF" && myNik === stafNik));
+        document
+          .getElementById("eskalasiAlert")
+          .classList.toggle("hidden", !(status === "ESKALASI_HR" && myNik === verif2Nik));
 
         const canEditNow = editableStage && myNik === atasanNik;
         const btnSimpanEl = document.getElementById("btnSimpan");
@@ -2318,6 +2490,10 @@
           [
             "btnSimpan",
             "btnAjukan",
+            "btnKonfirmasiStaf",
+            "btnKeberatanStaf",
+            "btnKeputusanLanjut",
+            "btnKeputusanKembali",
             "btnVerifikasi1",
             "btnKembalikan1",
             "btnVerifikasi2",
