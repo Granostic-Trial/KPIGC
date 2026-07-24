@@ -288,7 +288,7 @@
             <select
               id="tahunFilter"
               class="p-2 border rounded-lg text-sm font-bold bg-gray-50 outline-none"
-              onchange="loadData()"
+              onchange="_refreshSemesterFilterOptions_(); loadData();"
             ></select>
             <select
               id="semesterFilter"
@@ -442,6 +442,19 @@
               ⚠️ Staf yang dinilai mengajukan <b>keberatan</b> atas penilaian
               ini. Dokumen sedang menunggu keputusan penengah -- lihat alasan
               keberatan di Audit Trail di bawah sebelum memutuskan.
+            </div>
+
+            <!-- (CL7, bug #3 dilaporkan Doel): tombol "Ajukan Keberatan" dibatasi
+                 maksimal 2x per dokumen supaya tidak looping selamanya. Pesan ini
+                 muncul menggantikan tombol begitu jatah 2x sudah habis. -->
+            <div
+              id="keberatanLimitAlert"
+              class="hidden no-print bg-slate-100 text-slate-700 text-xs p-3 rounded-lg border border-slate-300 font-semibold"
+            >
+              ℹ️ Anda sudah mengajukan keberatan sebanyak 2 kali untuk penilaian
+              ini. Silakan centang kotak persetujuan di bawah untuk melanjutkan --
+              keputusan berikutnya bersifat <b>final</b> di tangan HRGA & IT
+              Manager / Manager terkait.
             </div>
 
             <!-- SECTION A: HARD SKILL -->
@@ -715,7 +728,7 @@
                   Manager Terkait
                 </p>
               </div>
-              <div class="w-1/5 flex flex-col items-center px-1">
+              <div class="w-1/5 flex flex-col items-center px-1" id="kolomVerif2">
                 <p class="font-semibold text-gray-500 mb-1">
                   Diverifikasi Oleh
                 </p>
@@ -1167,8 +1180,12 @@
       // ============================================================
       // GANTI URL di bawah dengan Web app URL hasil deploy Code.gs baru.
       // ============================================================
+      // CL7: disamakan dengan alamat resmi tercatat di PORTAL-KPI/webApps_link.txt.
+      // PENTING: kalau Doel redeploy Code_CL7.gs sebagai VERSI BARU dari deployment
+      // yang SAMA (Deploy > Manage deployments > Edit > New version), URL ini tidak
+      // berubah. Kalau membuat DEPLOYMENT BARU, URL exec baru harus ditempel di sini.
       const API_URL =
-        "https://script.google.com/macros/s/AKfycbyZcQNZAjRsgKTVbh4rmgMIUXWMzVboueEOZOdnJaLaniiGkUsEEc-1jpRzhHPP8G2Lqg/exec";
+        "https://script.google.com/macros/s/AKfycbyVDPt-kKz8KSy4gam4QANYpKuLfKpQxQ4SlDi1ZgBsRHibz1xupJgaf_oaYeSczXnuiA/exec";
 
       let MOCK_KARYAWAN = [],
         MOCK_STRUKTUR = [],
@@ -1184,7 +1201,8 @@
         chainVerif1 = null,
         chainVerif2 = null,
         chainSahkan = null,
-        chainVerif1Dilewati = false;
+        chainVerif1Dilewati = false,
+        chainVerif2Dilewati = false; // CL7 bug #5: staf level Direksi -- Verif1 & Verif2 sama-sama tidak ada
       let lastCalc = {
         sumHard: 0,
         propHard: 0,
@@ -1675,8 +1693,15 @@
             sahkan = direkturUntukStaf;
           }
         } else {
+          // Skenario 5 (CL7, bug #5): role Direksi dinilai (mis. Direktur dinilai
+          // Direktur Utama). TIDAK ADA Verif1 maupun Verif2 di jenjang ini --
+          // verif1Dilewati WAJIB true di sini juga (dulu tidak diset -> tombol
+          // "Verif HR"/"Sahkan" tidak pernah muncul karena refreshActionButtons
+          // menunggu status yang tidak akan pernah tercapai). Harus identik
+          // dengan resolveChain_ di Code.gs.
           verif1 = { nama: "-", jabatan: "-", email: "" };
           verif2 = { nama: "-", jabatan: "-", email: "" };
+          verif1Dilewati = true;
           sahkan = dirUtama;
         }
 
@@ -1749,9 +1774,12 @@
           if (m) {
             const semSel = document.getElementById("semesterFilter");
             const thSel = document.getElementById("tahunFilter");
-            if (semSel) semSel.value = m[1];
             if (thSel && Array.from(thSel.options).some((o) => o.value === m[2])) {
               thSel.value = m[2];
+            }
+            _refreshSemesterFilterOptions_(); // opsi semester tergantung tahun yang baru dipilih
+            if (semSel && Array.from(semSel.options).some((o) => o.value === m[1])) {
+              semSel.value = m[1];
             }
           }
           switchMenu("penilaian");
@@ -1852,12 +1880,68 @@
         }, 5000);
       }
 
+      // (CL7, bug #4 dilaporkan Doel) Menentukan periode TERAKHIR yang sudah
+      // "dilalui" berdasarkan tanggal perangkat -- Semester I = Jan-Jun,
+      // Semester II = Jul-Des. Dipakai untuk MEMBATASI dropdown Tahun/Semester
+      // di halaman utama (Lembar Penilaian) supaya tidak bisa memilih periode
+      // yang belum terjadi, tapi tetap bisa memilih periode masa lalu.
+      function _periodeMaksimalSaatIni_() {
+        const now = new Date();
+        return { tahun: now.getFullYear(), semester: now.getMonth() <= 5 ? 1 : 2 };
+      }
+      function _periodeBolehDipilih_(tahun, semester) {
+        const maks = _periodeMaksimalSaatIni_();
+        tahun = Number(tahun);
+        semester = Number(semester);
+        if (tahun < maks.tahun) return true;
+        if (tahun > maks.tahun) return false;
+        return semester <= maks.semester;
+      }
+
+      // Membangun ulang opsi Semester I/II pada #semesterFilter sesuai Tahun yang
+      // sedang dipilih di #tahunFilter -- kalau tahun yang dipilih adalah tahun
+      // berjalan, Semester yang belum dilalui disembunyikan dari pilihan.
+      function _refreshSemesterFilterOptions_() {
+        const thSel = document.getElementById("tahunFilter");
+        const smSel = document.getElementById("semesterFilter");
+        if (!thSel || !smSel) return;
+        const th = Number(thSel.value) || new Date().getFullYear();
+        const nilaiSebelumnya = smSel.value;
+        smSel.innerHTML = "";
+        [1, 2].forEach((s) => {
+          if (!_periodeBolehDipilih_(th, s)) return;
+          const opt = document.createElement("option");
+          opt.value = String(s);
+          opt.innerText = "Semester " + (s === 1 ? "I" : "II");
+          smSel.appendChild(opt);
+        });
+        if (Array.from(smSel.options).some((o) => o.value === nilaiSebelumnya)) {
+          smSel.value = nilaiSebelumnya;
+        } else if (smSel.options.length) {
+          smSel.value = smSel.options[smSel.options.length - 1].value;
+        }
+      }
+
       // Dropdown Tahun (sampai 2100) + Semester I/II, menggantikan dropdown
       // Periode lama yang cuma berisi 2 opsi tetap (Semester 1/2 2026).
+      // (CL7) #tahunFilter (halaman utama Lembar Penilaian) SEKARANG dibatasi
+      // sampai tahun berjalan saja (tidak bisa memilih tahun yang belum
+      // dilalui) -- selects lain (arsip/grafik/rekap) TETAP sampai 2100 karena
+      // itu untuk MELIHAT riwayat/rekap, bukan membuat penilaian baru.
       function populateTahunSemester() {
         const tahunSekarang = new Date().getFullYear();
+        const tahunFilterEl = document.getElementById("tahunFilter");
+        if (tahunFilterEl) {
+          tahunFilterEl.innerHTML = "";
+          for (let y = tahunSekarang - 2; y <= tahunSekarang; y++) {
+            const opt = document.createElement("option");
+            opt.value = String(y);
+            opt.innerText = String(y);
+            if (y === tahunSekarang) opt.selected = true;
+            tahunFilterEl.appendChild(opt);
+          }
+        }
         [
-          document.getElementById("tahunFilter"),
           document.getElementById("arsipTahun"),
           document.getElementById("grafikTimTahun"),
           document.getElementById("rekapTahun"),
@@ -1872,6 +1956,7 @@
             sel.appendChild(opt);
           }
         });
+        _refreshSemesterFilterOptions_();
       }
 
       // Format periode TETAP "Semester X YYYY" (kompatibel dengan data lama).
@@ -1952,6 +2037,11 @@
         chainVerif2 = verif2Obj;
         chainSahkan = sahkanObj;
         chainVerif1Dilewati = !!chain.verif1Dilewati;
+        // (CL7, bug #5) chain.verif1Dilewati=true dari resolveChainClient bisa
+        // berarti "hanya Verif1 kosong" (skenario 1-4) ATAU "Verif1 & Verif2
+        // sama-sama kosong" (skenario 5, staf level Direksi). Verif2 dianggap
+        // benar-benar ada kalau objeknya punya email.
+        chainVerif2Dilewati = chainVerif1Dilewati && !verif2Obj.email;
 
         document.getElementById("ttdAtasan").innerText = atasanObj.nama;
         document.getElementById("ttdAtasanJabatan").innerText = atasanObj.jabatan;
@@ -1961,9 +2051,11 @@
         document.getElementById("ttdVerif2Jabatan").innerText = verif2Obj.jabatan;
         document.getElementById("ttdDisahkanNama").innerText = sahkanObj.nama;
         document.getElementById("ttdDisahkanJabatan").innerText = sahkanObj.jabatan;
-        // Kolom "Diverifikasi Oleh" (Verif1) disembunyikan di layar & cetakan
-        // kalau tahap ini dilewati (Verif1 = orang yang sama dengan Atasan Penilai).
+        // Kolom "Diverifikasi Oleh" (Verif1/Verif2) disembunyikan di layar &
+        // cetakan kalau tahap itu dilewati (tidak ada orangnya di rantai ini).
         document.getElementById("kolomVerif1").classList.toggle("hidden", chainVerif1Dilewati);
+        const kolomVerif2El = document.getElementById("kolomVerif2");
+        if (kolomVerif2El) kolomVerif2El.classList.toggle("hidden", chainVerif2Dilewati);
 
         const myNik = String(currentUser.nik || "").trim();
         const isSelf = String(staf.nik || "").trim() === myNik;
@@ -2590,9 +2682,21 @@
         const stafNik = String((currentStaf && currentStaf.nik) || "").trim();
         const editableStage = status === "DRAFT" || status === "DIBUKA_REVISI";
 
+        // (CL7, bug #3) Batas maksimal "Ajukan Keberatan" -- dihitung dari
+        // riwayat audit RESMI (auditTrails, dimuat dari server lewat
+        // muatHasilTersimpan/renderAuditLog), BUKAN dari sesi browser saat ini,
+        // supaya tidak bisa diakali logout/login ulang atau refresh berkali-kali.
+        // HARUS sinkron dengan MAX_KEBERATAN_STAF di Code.gs.
+        const MAX_KEBERATAN_STAF_UI = 2;
+        const jumlahKeberatanTerpakai = (auditTrails || []).filter(
+          (a) => a && a.aksi === "keberatan_staf"
+        ).length;
+        const bolehKeberatanLagi = jumlahKeberatanTerpakai < MAX_KEBERATAN_STAF_UI;
+
         const visMap = {
           btnAjukan: editableStage && myNik === atasanNik && myNik !== "",
-          btnKeberatanStaf: status === "MENUNGGU_KONFIRMASI_STAF" && myNik === stafNik && myNik !== "",
+          btnKeberatanStaf:
+            status === "MENUNGGU_KONFIRMASI_STAF" && myNik === stafNik && myNik !== "" && bolehKeberatanLagi,
           btnKeputusanLanjut: status === "ESKALASI_HR" && myNik === verif2Nik && myNik !== "",
           btnKeputusanKembali: status === "ESKALASI_HR" && myNik === verif2Nik && myNik !== "",
           btnVerifikasi1: status === "PENILAIAN_SELESAI" && myNik === verif1Nik,
@@ -2613,6 +2717,16 @@
         document
           .getElementById("eskalasiAlert")
           .classList.toggle("hidden", !(status === "ESKALASI_HR" && myNik === verif2Nik));
+
+        // (CL7, bug #3) Pesan penjelas kalau staf sudah memakai jatah keberatan
+        // -- supaya tidak bingung kenapa tombolnya tiba-tiba hilang.
+        const keberatanLimitEl = document.getElementById("keberatanLimitAlert");
+        if (keberatanLimitEl) {
+          keberatanLimitEl.classList.toggle(
+            "hidden",
+            !(status === "MENUNGGU_KONFIRMASI_STAF" && myNik === stafNik && !bolehKeberatanLagi)
+          );
+        }
 
         // Kotak centang konfirmasi persetujuan (menggantikan tombol "Setuju").
         const bisaKonfirmasi =
@@ -3182,26 +3296,84 @@
           .replace(/>/g, "&gt;");
       }
 
+      // (CL7, bug #6 dilaporkan Doel) Ambil daftar indikator (Hard/Soft) untuk
+      // 1 jabatan tertentu dari globalMasterIndikator -- LOGIKA & URUTANNYA
+      // HARUS identik dengan filter yang dipakai renderKPI() di layar (lihat
+      // fungsi "globalMasterIndikator.forEach" di atas) dan dengan ambil() di
+      // _susunDetailServer_ (Code.gs), supaya urutan item di sini SAMA PERSIS
+      // dengan urutan skor tersimpan di rec.detail.hard/soft (dicocokkan by
+      // index posisi, bukan nama -- asumsi ini sudah dipakai fitur lain juga,
+      // mis. terapkanSkor()).
+      function _ambilIndikatorUntukCetak_(jenisTarget, jabatan) {
+        const jab = String(jabatan || "").toLowerCase().trim();
+        return (globalMasterIndikator || []).filter((item) => {
+          const kat = (item.jenis || item.kategori || "").toLowerCase().trim();
+          if (kat !== jenisTarget) return false;
+          if (jenisTarget === "soft skill") return true;
+          const ij = (item.jabatan || "").toLowerCase().trim();
+          return ij === jab || ij === "semua jabatan" || ij === "semua departemen";
+        });
+      }
+
       // Bangun 1 halaman cetak (HTML string) untuk 1 dokumen hasil, dipakai
-      // khusus fitur unduh massal. Nama indikator diambil dari Detail_JSON
-      // yang sudah disusun server (tidak perlu Master_Indikator lagi di sini).
+      // khusus fitur unduh massal. (CL7, bug #6): DISERAGAMKAN dengan tampilan
+      // asli "Cetak PDF" di halaman utama -- kolom indikator lengkap (KPI /
+      // Indikator / Indicator Tools / Satuan / Target / Bobot / Skor / Catatan,
+      // sama seperti tabel di layar), header dokumen resmi dengan nomor
+      // dokumen, dan QR TANDA TANGAN ASLI (rec.verifyUrl, endpoint QR yang
+      // SAMA dengan yang dipakai on-screen di muatHasilTersimpan/renderKPI) --
+      // sebelumnya QR ini kosong sama sekali di hasil unduh massal.
       function bangunHtmlCetak(rec) {
         const chain = resolveChainClient(rec.emailStaf) || {};
-        const atasan = chain.atasan || { nama: rec.namaPenilai || "-", jabatan: "-" };
-        const verif1 = chain.verif1 || { nama: "-", jabatan: "-" };
-        const verif2 = chain.verif2 || { nama: "-", jabatan: "-" };
-        const sahkan = chain.sahkan || { nama: "-", jabatan: "-" };
+        const atasan = chain.atasan || { nama: rec.namaPenilai || "-", jabatan: "-", email: "" };
+        const verif1 = chain.verif1 || { nama: "-", jabatan: "-", email: "" };
+        const verif2 = chain.verif2 || { nama: "-", jabatan: "-", email: "" };
+        const sahkan = chain.sahkan || { nama: "-", jabatan: "-", email: "" };
+        const verif1Dilewati = !!chain.verif1Dilewati && !verif1.email;
+        const verif2Dilewati = !!chain.verif1Dilewati && !verif2.email;
         const d = rec.detail || { hard: [], soft: [] };
 
-        function baris(item, no) {
+        const qrBase = "https://api.qrserver.com/v1/create-qr-code/?size=75x75&data=";
+        const qrImg = rec.verifyUrl
+          ? `<img src="${qrBase}${encodeURIComponent(rec.verifyUrl)}" style="width:52px;height:52px;border:1px solid #d1d5db;padding:2px;margin:0 auto 4px auto;display:block;opacity:1;">`
+          : `<div style="width:52px;height:52px;margin:0 auto 4px auto;"></div>`;
+
+        const indHard = _ambilIndikatorUntukCetak_("hard skill", rec.jabatan);
+        const indSoft = _ambilIndikatorUntukCetak_("soft skill", rec.jabatan);
+
+        function barisHard(item, det, no) {
+          const bobot = det ? det.bobot : parseFloat(String(item.bobot).replace("%", "")) || 0;
+          const skor = det && det.skor ? det.skor : "-";
+          const catatan = det ? det.catatan : "";
           return `<tr>
-            <td class="p-2 border text-center">${no}</td>
-            <td class="p-2 border">${_escHtml(item.indikator || "-")}</td>
-            <td class="p-2 border text-center">${item.bobot}%</td>
-            <td class="p-2 border text-center font-bold">${item.skor}</td>
-            <td class="p-2 border">${_escHtml(item.catatan || "")}</td>
+            <td class="p-1 border text-center">${no}</td>
+            <td class="p-1 border">${_escHtml(item.kpi || "-")}</td>
+            <td class="p-1 border">${_escHtml(item.indikator || "-")}</td>
+            <td class="p-1 border">${_escHtml(item.indicator_tools || item.deskripsi || "-")}</td>
+            <td class="p-1 border text-center">${_escHtml(item.satuan || "-")}</td>
+            <td class="p-1 border text-center">${_escHtml(item.target || "100%")}</td>
+            <td class="p-1 border text-center">${bobot}%</td>
+            <td class="p-1 border text-center font-bold">${skor}</td>
+            <td class="p-1 border">${_escHtml(catatan || "")}</td>
           </tr>`;
         }
+        function barisSoft(item, det, no) {
+          const bobot = det ? det.bobot : parseFloat(String(item.bobot).replace("%", "")) || 0;
+          const skor = det && det.skor ? det.skor : "-";
+          const catatan = det ? det.catatan : "";
+          return `<tr>
+            <td class="p-1 border text-center">${no}</td>
+            <td class="p-1 border">${_escHtml(item.kpi || "-")}</td>
+            <td class="p-1 border">${_escHtml(item.indikator || "-")}</td>
+            <td class="p-1 border text-center">${_escHtml(item.target || "Standar")}</td>
+            <td class="p-1 border text-center">${bobot}%</td>
+            <td class="p-1 border text-center font-bold">${skor}</td>
+            <td class="p-1 border">${_escHtml(catatan || "")}</td>
+          </tr>`;
+        }
+
+        const hardRows = indHard.map((item, i) => barisHard(item, (d.hard || [])[i], i + 1)).join("");
+        const softRows = indSoft.map((item, i) => barisSoft(item, (d.soft || [])[i], i + 1)).join("");
 
         const auditHtml = (rec.audit || [])
           .map((a) => {
@@ -3219,37 +3391,50 @@
           })
           .join("");
 
+        const kolomVerif1Html = verif1Dilewati
+          ? ""
+          : `<td style="padding:8px;width:20%;">Diverifikasi Oleh<br>${qrImg}<b>${_escHtml(verif1.nama)}</b><br>${_escHtml(verif1.jabatan)}</td>`;
+        const kolomVerif2Html = verif2Dilewati
+          ? ""
+          : `<td style="padding:8px;width:20%;">Diverifikasi Oleh<br>${qrImg}<b>${_escHtml(verif2.nama)}</b><br>${_escHtml(verif2.jabatan)}</td>`;
+
         return `
-          <div style="width:1050px;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#1f2937;background:#fff;">
-            <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #00A693;padding-bottom:10px;margin-bottom:14px;">
-              <div style="font-size:18px;font-weight:900;color:#00A693;">GRANOSTIC CENTER</div>
-              <div style="font-size:13px;font-weight:bold;">FORM PENILAIAN KPI -- ${_escHtml(rec.periode)}</div>
+          <div style="width:1200px;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#1f2937;background:#fff;">
+            <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:14px;">
+              <div style="text-align:right;font-size:9px;font-style:italic;color:#000;">No. DP. G.01/DP/HRGA&amp;IT/HR.01/03/01</div>
+              <div style="font-size:16px;font-weight:900;text-transform:uppercase;">PT. PERSADA MEDIKA UTAMA (GRANOSTIC CENTER)</div>
+              <div style="font-size:11px;font-weight:600;">Dokumen Resmi Penilaian Kinerja (KPI) Karyawan</div>
             </div>
             <table style="width:100%;font-size:12px;margin-bottom:14px;">
               <tr><td style="color:#6b7280;width:120px;padding:2px 0;">Nama Staf</td><td style="font-weight:bold;padding:2px 0;">${_escHtml(rec.namaStaf)}</td>
                   <td style="color:#6b7280;width:120px;padding:2px 0;">Departemen</td><td style="font-weight:bold;padding:2px 0;">${_escHtml(rec.departemen)}</td></tr>
               <tr><td style="color:#6b7280;padding:2px 0;">Jabatan</td><td style="font-weight:bold;padding:2px 0;">${_escHtml(rec.jabatan)}</td>
                   <td style="color:#6b7280;padding:2px 0;">Status</td><td style="font-weight:bold;padding:2px 0;">${_escHtml(rec.status)}</td></tr>
+              <tr><td style="color:#6b7280;padding:2px 0;">Periode</td><td style="font-weight:bold;padding:2px 0;">${_escHtml(rec.periode)}</td>
+                  <td style="color:#6b7280;padding:2px 0;">NIK</td><td style="font-weight:bold;padding:2px 0;">${_escHtml(rec.nikStaf)}</td></tr>
             </table>
 
-            <div style="font-size:12px;font-weight:bold;background:#f0fdfa;padding:6px 10px;margin-bottom:4px;">HARD SKILL (bobot 70%)</div>
-            <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;">
+            <div style="font-size:12px;font-weight:bold;background:#f0fdfa;padding:6px 10px;margin-bottom:4px;">SECTION A: HARD SKILL / KOMPETENSI TEKNIS (BOBOT 70%)</div>
+            <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:12px;">
               <thead><tr style="background:#f3f4f6;">
-                <th class="p-2 border" style="width:30px;">No</th><th class="p-2 border">Indikator</th>
-                <th class="p-2 border" style="width:60px;">Bobot</th><th class="p-2 border" style="width:50px;">Skor</th>
-                <th class="p-2 border">Catatan Realisasi</th>
+                <th class="p-1 border" style="width:24px;">No</th><th class="p-1 border">KPI</th>
+                <th class="p-1 border">Indikator / Orientasi Penilaian</th><th class="p-1 border">Indicator Tools</th>
+                <th class="p-1 border" style="width:44px;">Satuan</th><th class="p-1 border" style="width:44px;">Target</th>
+                <th class="p-1 border" style="width:44px;">Bobot</th><th class="p-1 border" style="width:44px;">Skor</th>
+                <th class="p-1 border">Catatan Realisasi</th>
               </tr></thead>
-              <tbody>${(d.hard || []).map((it, i) => baris(it, i + 1)).join("")}</tbody>
+              <tbody>${hardRows || '<tr><td colspan="9" class="p-2 border text-center text-gray-400">Tidak ada Indikator Hard Skill.</td></tr>'}</tbody>
             </table>
 
-            <div style="font-size:12px;font-weight:bold;background:#faf5ff;padding:6px 10px;margin-bottom:4px;">SOFT SKILL (bobot 30%)</div>
-            <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px;">
+            <div style="font-size:12px;font-weight:bold;background:#faf5ff;padding:6px 10px;margin-bottom:4px;">SECTION B: SOFT SKILL / PERILAKU BUDAYA KERJA (BOBOT 30%)</div>
+            <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:14px;">
               <thead><tr style="background:#f3f4f6;">
-                <th class="p-2 border" style="width:30px;">No</th><th class="p-2 border">Indikator</th>
-                <th class="p-2 border" style="width:60px;">Bobot</th><th class="p-2 border" style="width:50px;">Skor</th>
-                <th class="p-2 border">Catatan Realisasi</th>
+                <th class="p-1 border" style="width:24px;">No</th><th class="p-1 border">KPI / Parameter</th>
+                <th class="p-1 border">Indikator / Orientasi Perilaku Kerja</th><th class="p-1 border" style="width:60px;">Target</th>
+                <th class="p-1 border" style="width:44px;">Bobot</th><th class="p-1 border" style="width:44px;">Skor</th>
+                <th class="p-1 border">Catatan Perilaku</th>
               </tr></thead>
-              <tbody>${(d.soft || []).map((it, i) => baris(it, i + 1)).join("")}</tbody>
+              <tbody>${softRows || '<tr><td colspan="7" class="p-2 border text-center text-gray-400">Tidak ada Indikator Soft Skill.</td></tr>'}</tbody>
             </table>
 
             <table style="width:60%;margin-bottom:16px;font-size:12px;">
@@ -3260,10 +3445,11 @@
 
             <table style="width:100%;text-align:center;font-size:11px;margin-bottom:16px;">
               <tr>
-                <td style="padding:8px;">Dinilai oleh<br><b>${_escHtml(atasan.nama)}</b><br>${_escHtml(atasan.jabatan)}</td>
-                <td style="padding:8px;">Verifikasi 1<br><b>${_escHtml(verif1.nama)}</b><br>${_escHtml(verif1.jabatan)}</td>
-                <td style="padding:8px;">Verifikasi HR<br><b>${_escHtml(verif2.nama)}</b><br>${_escHtml(verif2.jabatan)}</td>
-                <td style="padding:8px;">Disahkan oleh<br><b>${_escHtml(sahkan.nama)}</b><br>${_escHtml(sahkan.jabatan)}</td>
+                <td style="padding:8px;width:20%;">Yang Bersangkutan<br>${qrImg}<b>${_escHtml(rec.namaStaf)}</b><br>Karyawan</td>
+                <td style="padding:8px;width:20%;">Dinilai Oleh<br>${qrImg}<b>${_escHtml(atasan.nama)}</b><br>${_escHtml(atasan.jabatan)}</td>
+                ${kolomVerif1Html}
+                ${kolomVerif2Html}
+                <td style="padding:8px;width:20%;">Disahkan Oleh<br>${qrImg}<b>${_escHtml(sahkan.nama)}</b><br>${_escHtml(sahkan.jabatan)}</td>
               </tr>
             </table>
 
