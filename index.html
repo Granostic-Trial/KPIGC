@@ -157,6 +157,9 @@
             >
               Masuk Sistem
             </button>
+            <p class="text-center text-xs text-gray-400 pt-1">
+              Lupa password? Hubungi Admin KPI (ext. 301)
+            </p>
           </form>
         </div>
 
@@ -1185,8 +1188,8 @@
       // yang SAMA (Deploy > Manage deployments > Edit > New version), URL ini tidak
       // berubah. Kalau membuat DEPLOYMENT BARU, URL exec baru harus ditempel di sini.
       const API_URL =
-        "https://script.google.com/macros/s/AKfycbyZcQNZAjRsgKTVbh4rmgMIUXWMzVboueEOZOdnJaLaniiGkUsEEc-1jpRzhHPP8G2Lqg/exec";
-         
+        "https://script.google.com/macros/s/AKfycbyVDPt-kKz8KSy4gam4QANYpKuLfKpQxQ4SlDi1ZgBsRHibz1xupJgaf_oaYeSczXnuiA/exec";
+
       let MOCK_KARYAWAN = [],
         MOCK_STRUKTUR = [],
         globalMasterIndikator = [];
@@ -1889,7 +1892,13 @@
         const now = new Date();
         return { tahun: now.getFullYear(), semester: now.getMonth() <= 5 ? 1 : 2 };
       }
+      // (Poin #6, permintaan Doel 26 Jul 2026) SUPER_ADMIN (Direksi/HRGA & IT
+      // Manager via Role Sistem) MENGECUALIKAN diri dari batasan "belum
+      // dilalui" -- mereka tetap bisa membuka tahun/semester apa pun di
+      // Lembar Penilaian (mis. untuk menyiapkan/mengecek struktur penilaian
+      // periode mendatang lebih awal). User biasa & Admin Arsip tetap dibatasi.
       function _periodeBolehDipilih_(tahun, semester) {
+        if (getAccessLevel(currentUser) === "SUPER_ADMIN") return true;
         const maks = _periodeMaksimalSaatIni_();
         tahun = Number(tahun);
         semester = Number(semester);
@@ -1930,10 +1939,12 @@
       // itu untuk MELIHAT riwayat/rekap, bukan membuat penilaian baru.
       function populateTahunSemester() {
         const tahunSekarang = new Date().getFullYear();
+        const isSuperAdmin = getAccessLevel(currentUser) === "SUPER_ADMIN";
         const tahunFilterEl = document.getElementById("tahunFilter");
         if (tahunFilterEl) {
           tahunFilterEl.innerHTML = "";
-          for (let y = tahunSekarang - 2; y <= tahunSekarang; y++) {
+          const batasAtas = isSuperAdmin ? 2100 : tahunSekarang;
+          for (let y = tahunSekarang - 2; y <= batasAtas; y++) {
             const opt = document.createElement("option");
             opt.value = String(y);
             opt.innerText = String(y);
@@ -2532,6 +2543,22 @@
       // sahkan/bukaKunci). Server (Code.gs) yang menentukan sah-tidaknya aksi ini
       // dilakukan oleh pengguna saat ini untuk staf terkait -- tombol di layar
       // cuma kenyamanan tampilan, bukan satu-satunya pengaman.
+      // (Poin #7, permintaan Doel 26 Jul 2026) Menentukan apakah aksi verifikasi/
+      // pengesahan yang SEDANG dilakukan ini memakai hak override HRGA & IT
+      // Manager (menggantikan peran yang seharusnya dipegang Direktur/Direktur
+      // Utama). HARUS sinkron dengan aturan overrideHr di Code.gs.
+      function _akuOverrideHrUntukAksi_(aksi) {
+        const myNik = String(currentUser.nik || "").trim();
+        const hrKaryawan = MOCK_KARYAWAN.find(
+          (k) => (k.jabatan || "").toLowerCase().trim() === "hrga & it manager"
+        );
+        if (!hrKaryawan || String(hrKaryawan.nik || "").trim() !== myNik) return false;
+        const pemilikAsli =
+          aksi === "verifikasi1" ? chainVerif1 : aksi === "verifikasi2" ? chainVerif2 : aksi === "sahkan" ? chainSahkan : null;
+        if (!pemilikAsli) return false;
+        return String(pemilikAsli.nik || "").trim() !== myNik;
+      }
+
       async function kirimAksi(aksi) {
         if (!currentStaf) {
           alert("Pilih staf yang dinilai terlebih dahulu.");
@@ -2560,8 +2587,13 @@
         const alasan = (document.getElementById("alasanLog").value || "")
           .trim()
           .replace(/[<>]/g, "");
-        if (meta.wajibAlasan && !alasan) {
-          alert("Wajib mengisi ALASAN di kolom catatan untuk aksi ini.");
+        const iniOverrideHr = _akuOverrideHrUntukAksi_(aksi);
+        if ((meta.wajibAlasan || iniOverrideHr) && !alasan) {
+          alert(
+            iniOverrideHr
+              ? "Anda menggunakan hak OVERRIDE HRGA & IT Manager untuk menggantikan peran ini -- wajib isi catatan/alasan di kolom di bawah."
+              : "Wajib mengisi ALASAN di kolom catatan untuk aksi ini."
+          );
           return;
         }
         if (meta.konfirmasiKhusus) {
@@ -2693,23 +2725,44 @@
         ).length;
         const bolehKeberatanLagi = jumlahKeberatanTerpakai < MAX_KEBERATAN_STAF_UI;
 
+        // (Poin #7) HRGA & IT Manager bisa override peran Verif1/Verif2/Sahkan
+        // yang seharusnya dipegang Direktur/Direktur Utama.
+        const overrideVerif1 = _akuOverrideHrUntukAksi_("verifikasi1") && status === "PENILAIAN_SELESAI";
+        const overrideVerif2 = _akuOverrideHrUntukAksi_("verifikasi2") && status === "TERVERIFIKASI_ATASAN";
+        const overrideSahkan = _akuOverrideHrUntukAksi_("sahkan") && status === "TERVERIFIKASI_HR";
+
         const visMap = {
           btnAjukan: editableStage && myNik === atasanNik && myNik !== "",
           btnKeberatanStaf:
             status === "MENUNGGU_KONFIRMASI_STAF" && myNik === stafNik && myNik !== "" && bolehKeberatanLagi,
           btnKeputusanLanjut: status === "ESKALASI_HR" && myNik === verif2Nik && myNik !== "",
           btnKeputusanKembali: status === "ESKALASI_HR" && myNik === verif2Nik && myNik !== "",
-          btnVerifikasi1: status === "PENILAIAN_SELESAI" && myNik === verif1Nik,
+          btnVerifikasi1: (status === "PENILAIAN_SELESAI" && myNik === verif1Nik) || overrideVerif1,
           btnKembalikan1: status === "PENILAIAN_SELESAI" && myNik === verif1Nik,
-          btnVerifikasi2: status === "TERVERIFIKASI_ATASAN" && myNik === verif2Nik,
+          btnVerifikasi2: (status === "TERVERIFIKASI_ATASAN" && myNik === verif2Nik) || overrideVerif2,
           btnKembalikan2: status === "TERVERIFIKASI_ATASAN" && myNik === verif2Nik,
-          btnSahkan: status === "TERVERIFIKASI_HR" && myNik === sahkanNik,
+          btnSahkan: (status === "TERVERIFIKASI_HR" && myNik === sahkanNik) || overrideSahkan,
           btnKembalikan3: status === "TERVERIFIKASI_HR" && myNik === sahkanNik,
         };
         Object.keys(visMap).forEach((id) => {
           const el = document.getElementById(id);
           if (el) el.classList.toggle("hidden", !visMap[id]);
         });
+
+        // Ubah label tombol supaya jelas ini mode override (bukan aksi normal),
+        // dan ingatkan wajib isi catatan lewat placeholder textarea.
+        const btnV1 = document.getElementById("btnVerifikasi1");
+        const btnV2 = document.getElementById("btnVerifikasi2");
+        const btnSah = document.getElementById("btnSahkan");
+        const alasanEl = document.getElementById("alasanLog");
+        if (btnV1) btnV1.innerText = overrideVerif1 ? "✔️ Verifikasi (Override HR)" : "✔️ Verifikasi";
+        if (btnV2) btnV2.innerText = overrideVerif2 ? "✔️ Verif HR (Override)" : "✔️ Verif HR";
+        if (btnSah) btnSah.innerText = overrideSahkan ? "✅ Sahkan (Override HR)" : "✅ Sahkan";
+        if (alasanEl && (overrideVerif1 || overrideVerif2 || overrideSahkan)) {
+          alasanEl.placeholder = "WAJIB diisi -- Anda menggunakan hak override HRGA & IT Manager...";
+        } else if (alasanEl) {
+          alasanEl.placeholder = "Tulis alasan jika mengubah/menyimpan nilai...";
+        }
 
         document
           .getElementById("konfirmasiAlert")
