@@ -135,11 +135,12 @@
           </p>
           <form id="loginForm" class="space-y-4 text-left">
             <input
-              type="email"
-              id="email"
+              type="text"
+              id="nik"
               required
-              placeholder="Email Kerja"
+              placeholder="NIK"
               autocomplete="off"
+              inputmode="numeric"
               class="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition"
             />
             <input
@@ -1721,9 +1722,9 @@
         .addEventListener("submit", async (e) => {
           e.preventDefault();
           const btn = document.getElementById("btnLogin");
-          const em = document.getElementById("email").value.trim();
+          const nik = document.getElementById("nik").value.trim();
           const pw = document.getElementById("pass").value.trim();
-          if (!em || !pw) return;
+          if (!nik || !pw) return;
 
           btn.disabled = true;
           const prevText = btn.innerText;
@@ -1731,7 +1732,7 @@
           try {
             const j = await apiPost({
               action: "checkLogin",
-              email: em,
+              nik: nik,
               password: pw,
             });
             if (j.ok && j.user) {
@@ -1742,7 +1743,7 @@
               await loadMasterData();
               await tampilkanAplikasiUtama();
             } else {
-              alert(j.error || "Email atau Password salah!");
+              alert(j.error || "NIK atau Password salah!");
             }
           } catch (err) {
             alert("Gagal menghubungi server: " + err.message);
